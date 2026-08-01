@@ -6,6 +6,7 @@ export import adelie.routing.pattern;
 export import adelie.routing.route;
 export import adelie.routing.router;
 export import adelie.facades.route;
+export import adelie.server;
 
 export namespace adelie {
 
@@ -23,11 +24,15 @@ using routing::Binding;
 using routing::Constraint;
 using routing::GroupAttributes;
 using routing::Handler;
+using routing::Middleware;
+using routing::Next;
 using routing::Parameter;
 using routing::PendingRoute;
 using routing::RouteDefinition;
 using routing::Router;
 using routing::RouteRegistrar;
 using routing::UriPattern;
+
+using server::Server;
 
 }

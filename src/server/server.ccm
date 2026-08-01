@@ -1,0 +1,34 @@
+module;
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string_view>
+
+export module adelie.server;
+
+import adelie.routing.router;
+
+export namespace adelie::server {
+
+class Server {
+ public:
+  explicit Server(routing::Router& routes);
+  Server(Server&& other) noexcept;
+  auto operator=(Server&& other) noexcept -> Server&;
+  ~Server();
+
+  auto workers(std::size_t count) -> Server&;
+  auto listen(std::string_view address, std::uint16_t port) -> Server&;
+
+  auto address() const noexcept -> std::string_view;
+  auto port() const noexcept -> std::uint16_t;
+
+  auto run() -> void;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}

@@ -204,9 +204,30 @@ class Router {
 
   auto url(std::string_view name) const -> std::string { return url(name, std::span<Binding const>{}); }
 
+  auto fallback(Handler handler) -> void { fallback_ = std::move(handler); }
+
+  auto fallback_handler() const noexcept -> Handler const* { return fallback_ ? &fallback_ : nullptr; }
+
+  auto alias_middleware(std::string_view name, Middleware handler) -> void {
+    for (auto& alias : aliases_) {
+      if (alias.first != name) continue;
+      alias.second = std::move(handler);
+      return;
+    }
+    aliases_.emplace_back(std::string(name), std::move(handler));
+  }
+
+  auto middleware_for(std::string_view name) const noexcept -> Middleware const* {
+    for (auto const& alias : aliases_)
+      if (alias.first == name) return &alias.second;
+    return nullptr;
+  }
+
   auto clear() -> void {
     routes_.clear();
     groups_.clear();
+    aliases_.clear();
+    fallback_ = Handler{};
   }
 
  private:
@@ -247,6 +268,8 @@ class Router {
 
   std::vector<RouteDefinition> routes_;
   std::vector<GroupAttributes> groups_;
+  std::vector<std::pair<std::string, Middleware>> aliases_;
+  Handler fallback_;
 };
 
 }

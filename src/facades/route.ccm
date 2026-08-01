@@ -92,6 +92,12 @@ class Route {
 
   static auto url(std::string_view name) -> std::string { return router().url(name); }
 
+  static auto fallback(routing::Handler handler) -> void { router().fallback(std::move(handler)); }
+
+  static auto alias_middleware(std::string_view name, routing::Middleware handler) -> void {
+    router().alias_middleware(name, std::move(handler));
+  }
+
   static auto clear() -> void { router().clear(); }
 };
 

@@ -15,6 +15,10 @@ export namespace adelie::routing {
 
 using Handler = support::Callable<http::Response(http::Request const&)>;
 
+using Next = support::Callable<http::Response()>;
+
+using Middleware = support::Callable<http::Response(http::Request&, Next const&)>;
+
 struct Constraint {
   std::string parameter;
   std::string pattern;

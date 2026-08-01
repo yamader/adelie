@@ -22,7 +22,7 @@ class Callable<R(Args...)> {
 
   auto operator()(Args... args) const -> R { return holder_->invoke(std::forward<Args>(args)...); }
 
-  explicit operator bool() const noexcept { return holder_ != nullptr; }
+  explicit operator bool() const noexcept { return holder_.get() != nullptr; }
 
  private:
   struct Concept {

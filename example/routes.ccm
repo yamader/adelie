@@ -17,7 +17,36 @@ auto index(Request const&) -> Response { return Response::text("Adelie"); }
 
 auto show_user(Request const& req) -> Response { return Response::json({{"id", req.route("id")}}); }
 
+auto store_user(Request const& req) -> Response {
+  return Response::json({{"received", req.body()}}, adelie::Status::created);
+}
+
 auto no_body(Request const&) -> Response { return Response::no_content(); }
+
+auto whoami(Request const& req) -> Response {
+  return Response::json({{"route", req.route_name()}, {"user", req.header("x-user")}});
+}
+
+}
+
+namespace example::middleware {
+
+using adelie::Next;
+using adelie::Request;
+using adelie::Response;
+
+auto auth(Request& req, Next const& next) -> Response {
+  if (req.header("authorization").empty())
+    return Response::json({{"error", "unauthorized"}}, adelie::Status::unauthorized);
+  req.set_header("x-user", "root");
+  return next();
+}
+
+auto verified(Request&, Next const& next) -> Response {
+  auto response = next();
+  response.set_header("x-verified", "1");
+  return response;
+}
 
 }
 
@@ -26,15 +55,18 @@ namespace example {
 auto define_routes() -> void {
   using adelie::Route;
 
+  Route::alias_middleware("auth", middleware::auth);
+  Route::alias_middleware("verified", middleware::verified);
+
   Route::get("/", handlers::index).name("home");
 
   Route::get("/users/{id}", handlers::show_user).name("users.show").where("id", "[0-9]+");
-  Route::post("/users", handlers::no_body).name("users.store");
+  Route::post("/users", handlers::store_user).name("users.store");
   Route::get("/posts/{year}/{slug?}", handlers::index).name("posts.show");
   Route::get("/assets/{path*}", handlers::index).name("assets");
 
   Route::prefix("admin").name("admin.").middleware({"auth", "verified"}).group([] {
-    Route::get("/dashboard", handlers::index).name("dashboard");
+    Route::get("/dashboard", handlers::whoami).name("dashboard");
     Route::delete_("/users/{id}", handlers::no_body).name("users.destroy");
   });
 }
