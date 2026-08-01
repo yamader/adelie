@@ -1,0 +1,85 @@
+module;
+
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.routing.route;
+
+import adelie.http;
+import adelie.routing.pattern;
+import adelie.support.callable;
+
+export namespace adelie::routing {
+
+using Handler = support::Callable<http::Response(http::Request const&)>;
+
+struct Constraint {
+  std::string parameter;
+  std::string pattern;
+};
+
+class RouteDefinition {
+ public:
+  RouteDefinition(http::MethodSet methods, UriPattern pattern, Handler handler)
+      : methods_(methods), pattern_(std::move(pattern)), handler_(std::move(handler)) {}
+
+  auto methods() const noexcept -> http::MethodSet { return methods_; }
+  auto accepts(http::Method m) const noexcept -> bool { return methods_.contains(m); }
+
+  auto pattern() const noexcept -> UriPattern const& { return pattern_; }
+  auto uri() const noexcept -> std::string_view { return pattern_.source(); }
+
+  auto handler() const noexcept -> Handler const& { return handler_; }
+
+  auto name() const noexcept -> std::string_view { return name_; }
+  auto name_prefix() const noexcept -> std::string_view { return name_prefix_; }
+
+  auto middleware() const noexcept -> std::vector<std::string> const& { return middleware_; }
+
+  auto constraints() const noexcept -> std::vector<Constraint> const& { return constraints_; }
+
+  auto constraint(std::string_view parameter) const noexcept -> std::string_view {
+    for (auto const& c : constraints_)
+      if (c.parameter == parameter) return c.pattern;
+    return {};
+  }
+
+  auto set_name(std::string_view name) -> RouteDefinition& {
+    name_ = name_prefix_;
+    name_ += name;
+    return *this;
+  }
+
+  auto set_name_prefix(std::string_view prefix) -> RouteDefinition& {
+    name_prefix_ = prefix;
+    return *this;
+  }
+
+  auto add_middleware(std::string_view name) -> RouteDefinition& {
+    middleware_.emplace_back(name);
+    return *this;
+  }
+
+  auto set_constraint(std::string_view parameter, std::string_view pattern) -> RouteDefinition& {
+    for (auto& c : constraints_) {
+      if (c.parameter != parameter) continue;
+      c.pattern = pattern;
+      return *this;
+    }
+    constraints_.push_back(Constraint{std::string(parameter), std::string(pattern)});
+    return *this;
+  }
+
+ private:
+  http::MethodSet methods_;
+  UriPattern pattern_;
+  Handler handler_;
+  std::string name_;
+  std::string name_prefix_;
+  std::vector<std::string> middleware_;
+  std::vector<Constraint> constraints_;
+};
+
+}

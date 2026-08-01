@@ -1,0 +1,55 @@
+module;
+
+#include <initializer_list>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.http:response;
+
+import :types;
+
+export namespace adelie::http {
+
+class Response {
+ public:
+  Response();
+  explicit Response(Status status);
+  Response(Status status, std::string body);
+  Response(Response const& other);
+  Response(Response&& other) noexcept;
+  auto operator=(Response const& other) -> Response&;
+  auto operator=(Response&& other) noexcept -> Response&;
+  ~Response();
+
+  static auto text(std::string body, Status status = Status::ok) -> Response;
+  static auto html(std::string body, Status status = Status::ok) -> Response;
+  static auto json(std::string body, Status status = Status::ok) -> Response;
+  static auto json(std::initializer_list<std::pair<std::string_view, std::string_view>> fields,
+                   Status status = Status::ok) -> Response;
+  static auto no_content() -> Response;
+  static auto redirect(std::string_view location, Status status = Status::found) -> Response;
+
+  auto status() const noexcept -> Status;
+  auto status(Status value) -> Response&;
+  auto reason() const noexcept -> std::string_view;
+
+  auto header(std::string_view name) const noexcept -> std::string_view;
+  auto header(Field name) const noexcept -> std::string_view;
+  auto has_header(std::string_view name) const noexcept -> bool;
+  auto set_header(std::string_view name, std::string_view value) -> Response&;
+  auto set_header(Field name, std::string_view value) -> Response&;
+  auto headers() const -> std::vector<Header>;
+
+  auto body() const noexcept -> std::string_view;
+  auto body(std::string value) -> Response&;
+  auto append(std::string_view value) -> Response&;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}

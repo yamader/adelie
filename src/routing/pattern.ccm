@@ -1,0 +1,237 @@
+module;
+
+#include <boost/url/encode.hpp>
+#include <boost/url/rfc/pchars.hpp>
+#include <cstddef>
+#include <initializer_list>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.routing.pattern;
+
+import adelie.support.utils;
+
+namespace adelie::routing::detail {
+
+using support::boost_view;
+
+constexpr auto is_name_start(char c) noexcept -> bool {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+}
+
+constexpr auto is_name_char(char c) noexcept -> bool { return is_name_start(c) || (c >= '0' && c <= '9'); }
+
+constexpr std::string_view boost_reserved = R"(\:*{}()[]+?!)";
+
+auto append_escaped(std::string& out, std::string_view literal) -> void {
+  for (char const c : literal) {
+    if (boost_reserved.find(c) != std::string_view::npos) out.push_back('\\');
+    out.push_back(c);
+  }
+}
+
+[[noreturn]] auto fail(std::string_view uri, std::string_view why) -> void {
+  throw std::invalid_argument("adelie: invalid route URI \"" + std::string(uri) + "\": " + std::string(why));
+}
+
+auto encode_segment(std::string_view value, bool wildcard) -> std::string;
+
+}
+
+export namespace adelie::routing {
+
+struct Parameter {
+  std::string name;
+  bool optional = false;
+  bool wildcard = false;
+};
+
+using Binding = std::pair<std::string_view, std::string_view>;
+
+auto normalize_uri(std::string_view uri) -> std::string {
+  std::string out;
+  out.push_back('/');
+  std::size_t i = 0;
+  while (i < uri.size()) {
+    while (i < uri.size() && uri[i] == '/') ++i;
+    std::size_t const start = i;
+    while (i < uri.size() && uri[i] != '/') ++i;
+    if (i > start) {
+      if (out.size() > 1) out.push_back('/');
+      out.append(uri.substr(start, i - start));
+    }
+  }
+  return out;
+}
+
+auto join_uri(std::string_view prefix, std::string_view uri) -> std::string {
+  std::string joined;
+  joined.reserve(prefix.size() + uri.size() + 1);
+  joined.append(prefix);
+  joined.push_back('/');
+  joined.append(uri);
+  return normalize_uri(joined);
+}
+
+class UriPattern {
+ public:
+  UriPattern() = default;
+
+  static auto parse(std::string_view uri) -> UriPattern {
+    UriPattern p;
+    p.source_ = normalize_uri(uri);
+    std::string_view const s = p.source_;
+
+    std::string literal;
+    bool seen_optional = false;
+    bool seen_wildcard = false;
+
+    auto flush_literal = [&] {
+      if (literal.empty()) return;
+      if (seen_optional && literal != "/") detail::fail(s, "literal text after an optional parameter");
+      p.tokens_.push_back(Token{literal, false, false, false});
+      literal.clear();
+    };
+
+    for (std::size_t i = 0; i < s.size(); ++i) {
+      char const c = s[i];
+      if (c == '}') detail::fail(s, "unmatched '}'");
+      if (c != '{') {
+        literal.push_back(c);
+        continue;
+      }
+
+      auto const close = s.find('}', i + 1);
+      if (close == std::string_view::npos) detail::fail(s, "unmatched '{'");
+      auto spec = s.substr(i + 1, close - i - 1);
+      i = close;
+
+      bool optional = false;
+      bool wildcard = false;
+      while (!spec.empty() && (spec.back() == '?' || spec.back() == '*')) {
+        if (spec.back() == '?')
+          optional = true;
+        else
+          wildcard = true;
+        spec.remove_suffix(1);
+      }
+
+      if (spec.empty()) detail::fail(s, "empty parameter name");
+      if (!detail::is_name_start(spec.front()))
+        detail::fail(s, "parameter name must start with a letter or underscore");
+      for (char const nc : spec)
+        if (!detail::is_name_char(nc)) detail::fail(s, "parameter name must be an identifier");
+
+      if (seen_wildcard) detail::fail(s, "a catch-all parameter must come last");
+      if (!optional && seen_optional) detail::fail(s, "a required parameter cannot follow an optional one");
+      if (p.has_parameter(spec)) detail::fail(s, "duplicate parameter name");
+
+      flush_literal();
+
+      seen_optional = seen_optional || optional;
+      seen_wildcard = wildcard;
+
+      p.tokens_.push_back(Token{std::string(spec), true, optional, wildcard});
+      p.parameters_.push_back(Parameter{std::string(spec), optional, wildcard});
+    }
+    flush_literal();
+
+    return p;
+  }
+
+  auto source() const noexcept -> std::string_view { return source_; }
+
+  auto parameters() const noexcept -> std::vector<Parameter> const& { return parameters_; }
+
+  auto has_parameter(std::string_view name) const noexcept -> bool {
+    for (auto const& param : parameters_)
+      if (param.name == name) return true;
+    return false;
+  }
+
+  auto is_static() const noexcept -> bool { return parameters_.empty(); }
+
+  auto to_boost_pattern() const -> std::string {
+    std::string out;
+    for (auto const& t : tokens_) {
+      if (!t.is_parameter) {
+        detail::append_escaped(out, t.text);
+        continue;
+      }
+      if (!t.optional) {
+        out.push_back(t.wildcard ? '*' : ':');
+        out += t.text;
+        continue;
+      }
+      bool const absorb_slash = !out.empty() && out.back() == '/';
+      if (absorb_slash) out.pop_back();
+      out.push_back('{');
+      if (absorb_slash) out.push_back('/');
+      out.push_back(t.wildcard ? '*' : ':');
+      out += t.text;
+      out.push_back('}');
+    }
+    return out;
+  }
+
+  auto build(std::span<Binding const> bindings) const -> std::string {
+    auto find = [&](std::string_view name) -> std::string_view const* {
+      for (auto const& b : bindings)
+        if (b.first == name) return &b.second;
+      return nullptr;
+    };
+
+    std::string out;
+    for (auto const& t : tokens_) {
+      if (!t.is_parameter) {
+        out += t.text;
+        continue;
+      }
+      auto const* value = find(t.text);
+      if (value == nullptr) {
+        if (!t.optional)
+          throw std::invalid_argument("adelie: no binding for route parameter \"" + t.text + "\" in \"" + source_ +
+                                      '"');
+        if (!out.empty() && out.back() == '/') out.pop_back();
+        break;
+      }
+      out += detail::encode_segment(*value, t.wildcard);
+    }
+
+    if (out.empty()) out.push_back('/');
+    return out;
+  }
+
+  auto build(std::initializer_list<Binding> bindings) const -> std::string {
+    return build(std::span<Binding const>(bindings.begin(), bindings.size()));
+  }
+
+  auto build() const -> std::string { return build(std::span<Binding const>{}); }
+
+ private:
+  struct Token {
+    std::string text;
+    bool is_parameter = false;
+    bool optional = false;
+    bool wildcard = false;
+  };
+
+  std::string source_;
+  std::vector<Token> tokens_;
+  std::vector<Parameter> parameters_;
+};
+
+}
+
+namespace adelie::routing::detail {
+
+auto encode_segment(std::string_view value, bool wildcard) -> std::string {
+  return wildcard ? boost::urls::encode(boost_view(value), boost::urls::pchars + '/')
+                  : boost::urls::encode(boost_view(value), boost::urls::pchars);
+}
+
+}

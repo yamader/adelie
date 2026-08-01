@@ -1,0 +1,60 @@
+module;
+
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.http:request;
+
+import :types;
+
+export namespace adelie::http {
+
+class Request {
+ public:
+  Request();
+  Request(Method method, std::string_view target);
+  Request(Request const& other);
+  Request(Request&& other) noexcept;
+  auto operator=(Request const& other) -> Request&;
+  auto operator=(Request&& other) noexcept -> Request&;
+  ~Request();
+
+  auto method() const noexcept -> Method;
+  auto is_method(Method m) const noexcept -> bool;
+
+  auto target() const noexcept -> std::string_view;
+  auto path() const noexcept -> std::string_view;
+
+  auto header(std::string_view name) const noexcept -> std::string_view;
+  auto header(Field name) const noexcept -> std::string_view;
+  auto has_header(std::string_view name) const noexcept -> bool;
+  auto set_header(std::string_view name, std::string_view value) -> Request&;
+  auto set_header(Field name, std::string_view value) -> Request&;
+  auto headers() const -> std::vector<Header>;
+
+  auto body() const noexcept -> std::string_view;
+  auto set_body(std::string value) -> Request&;
+
+  auto route(std::string_view name) const noexcept -> std::string_view;
+  auto route(std::string_view name, std::string_view fallback) const noexcept -> std::string_view;
+  auto has_route(std::string_view name) const noexcept -> bool;
+  auto route_parameters() const noexcept -> std::vector<std::pair<std::string, std::string>> const&;
+  auto set_route_parameters(std::vector<std::pair<std::string, std::string>> params) -> Request&;
+
+  auto query(std::string_view name) const noexcept -> std::string_view;
+  auto query(std::string_view name, std::string_view fallback) const noexcept -> std::string_view;
+  auto has_query(std::string_view name) const noexcept -> bool;
+  auto query_parameters() const noexcept -> std::vector<std::pair<std::string, std::string>> const&;
+
+  auto route_name() const noexcept -> std::string_view;
+  auto set_route_name(std::string name) -> Request&;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}

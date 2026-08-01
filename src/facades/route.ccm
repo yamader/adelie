@@ -1,0 +1,98 @@
+module;
+
+#include <initializer_list>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.facades.route;
+
+import adelie.http;
+import adelie.routing.pattern;
+import adelie.support.callable;
+import adelie.routing.route;
+import adelie.routing.router;
+
+export namespace adelie::facades {
+
+class Route {
+ public:
+  Route() = delete;
+
+  static auto router() noexcept -> routing::Router& {
+    static routing::Router instance;
+    return instance;
+  }
+
+  static auto add(http::MethodSet methods, std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().add(methods, uri, std::move(handler));
+  }
+
+  static auto get(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().get(uri, std::move(handler));
+  }
+
+  static auto head(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().head(uri, std::move(handler));
+  }
+
+  static auto post(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().post(uri, std::move(handler));
+  }
+
+  static auto put(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().put(uri, std::move(handler));
+  }
+
+  static auto patch(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().patch(uri, std::move(handler));
+  }
+
+  static auto delete_(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().delete_(uri, std::move(handler));
+  }
+
+  static auto options(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().options(uri, std::move(handler));
+  }
+
+  static auto any(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+    return router().any(uri, std::move(handler));
+  }
+
+  static auto match(std::initializer_list<http::Method> methods, std::string_view uri, routing::Handler handler)
+      -> routing::PendingRoute {
+    return router().match(methods, uri, std::move(handler));
+  }
+
+  static auto prefix(std::string_view value) -> routing::RouteRegistrar { return router().prefix(value); }
+
+  static auto name(std::string_view value) -> routing::RouteRegistrar { return router().name(value); }
+
+  static auto middleware(std::string_view value) -> routing::RouteRegistrar { return router().middleware(value); }
+
+  static auto middleware(std::initializer_list<std::string_view> values) -> routing::RouteRegistrar {
+    return router().middleware(values);
+  }
+
+  static auto group(routing::GroupAttributes attributes, support::Callable<void()> body) -> void {
+    router().group(std::move(attributes), std::move(body));
+  }
+
+  static auto routes() -> std::vector<routing::RouteDefinition> const& { return router().routes(); }
+
+  static auto named(std::string_view name) -> routing::RouteDefinition const* { return router().named(name); }
+
+  static auto has(std::string_view name) -> bool { return router().has(name); }
+
+  static auto url(std::string_view name, std::initializer_list<routing::Binding> bindings) -> std::string {
+    return router().url(name, bindings);
+  }
+
+  static auto url(std::string_view name) -> std::string { return router().url(name); }
+
+  static auto clear() -> void { router().clear(); }
+};
+
+}

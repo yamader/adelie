@@ -1,0 +1,87 @@
+module;
+
+#include <boost/http/field.hpp>
+#include <boost/http/method.hpp>
+#include <boost/http/status.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <initializer_list>
+#include <string>
+#include <vector>
+
+export module adelie.http:types;
+
+export namespace adelie::http {
+
+using Method = boost::http::method;
+using Status = boost::http::status;
+using Field = boost::http::field;
+
+struct Header {
+  std::string name;
+  std::string value;
+};
+
+constexpr std::size_t method_count = static_cast<std::size_t>(Method::unlink) + 1;
+
+class MethodSet {
+ public:
+  constexpr MethodSet() noexcept = default;
+
+  constexpr MethodSet(Method m) noexcept : bits_(bit(m)) {}
+
+  constexpr MethodSet(std::initializer_list<Method> ms) noexcept {
+    for (auto const m : ms) bits_ |= bit(m);
+  }
+
+  static constexpr auto all() noexcept -> MethodSet {
+    MethodSet s;
+    s.bits_ = ~std::uint64_t{0};
+    return s;
+  }
+
+  constexpr auto contains(Method m) const noexcept -> bool { return (bits_ & bit(m)) != 0; }
+
+  constexpr auto insert(Method m) noexcept -> MethodSet& {
+    bits_ |= bit(m);
+    return *this;
+  }
+
+  constexpr auto empty() const noexcept -> bool { return bits_ == 0; }
+
+  auto to_vector() const -> std::vector<Method> {
+    std::vector<Method> out;
+    for (std::size_t i = 0; i < method_count; ++i) {
+      auto const m = static_cast<Method>(i);
+      if (m != Method::unknown && contains(m)) out.push_back(m);
+    }
+    return out;
+  }
+
+  friend constexpr auto operator|(MethodSet a, MethodSet b) noexcept -> MethodSet {
+    MethodSet s;
+    s.bits_ = a.bits_ | b.bits_;
+    return s;
+  }
+
+  friend constexpr auto operator==(MethodSet, MethodSet) noexcept -> bool = default;
+
+ private:
+  static constexpr auto bit(Method m) noexcept -> std::uint64_t {
+    return std::uint64_t{1} << static_cast<std::uint8_t>(m);
+  }
+
+  std::uint64_t bits_ = 0;
+};
+
+auto to_string(MethodSet ms) -> std::string {
+  std::string out;
+  for (auto const m : ms.to_vector()) {
+    if (!out.empty()) out += ", ";
+    auto const text = boost::http::to_string(m);
+    out.append(text.data(), text.size());
+  }
+  return out;
+}
+
+}

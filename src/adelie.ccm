@@ -1,0 +1,33 @@
+export module adelie;
+
+export import adelie.support.callable;
+export import adelie.http;
+export import adelie.routing.pattern;
+export import adelie.routing.route;
+export import adelie.routing.router;
+export import adelie.facades.route;
+
+export namespace adelie {
+
+using facades::Route;
+
+using http::Field;
+using http::Header;
+using http::Method;
+using http::MethodSet;
+using http::Request;
+using http::Response;
+using http::Status;
+
+using routing::Binding;
+using routing::Constraint;
+using routing::GroupAttributes;
+using routing::Handler;
+using routing::Parameter;
+using routing::PendingRoute;
+using routing::RouteDefinition;
+using routing::Router;
+using routing::RouteRegistrar;
+using routing::UriPattern;
+
+}

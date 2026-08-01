@@ -1,0 +1,286 @@
+module;
+
+#include <cstddef>
+#include <initializer_list>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.routing.router;
+
+import adelie.http;
+import adelie.routing.pattern;
+import adelie.support.callable;
+import adelie.routing.route;
+
+export namespace adelie::routing {
+
+struct GroupAttributes {
+  std::string prefix;
+  std::string name;
+  std::vector<std::string> middleware;
+  std::vector<Constraint> constraints;
+};
+
+class Router;
+
+class PendingRoute {
+ public:
+  auto name(std::string_view value) -> PendingRoute&;
+  auto middleware(std::string_view value) -> PendingRoute&;
+  auto middleware(std::initializer_list<std::string_view> values) -> PendingRoute&;
+  auto where(std::string_view parameter, std::string_view pattern) -> PendingRoute&;
+
+  auto definition() const -> RouteDefinition const&;
+  auto index() const noexcept -> std::size_t { return index_; }
+
+ private:
+  friend class Router;
+
+  PendingRoute(Router& owner, std::size_t index) : owner_(&owner), index_(index) {}
+
+  Router* owner_;
+  std::size_t index_;
+};
+
+class RouteRegistrar {
+ public:
+  auto prefix(std::string_view value) -> RouteRegistrar& {
+    attributes_.prefix = value;
+    return *this;
+  }
+
+  auto name(std::string_view value) -> RouteRegistrar& {
+    attributes_.name = value;
+    return *this;
+  }
+
+  auto middleware(std::string_view value) -> RouteRegistrar& {
+    attributes_.middleware.emplace_back(value);
+    return *this;
+  }
+
+  auto middleware(std::initializer_list<std::string_view> values) -> RouteRegistrar& {
+    for (auto const value : values) attributes_.middleware.emplace_back(value);
+    return *this;
+  }
+
+  auto where(std::string_view parameter, std::string_view pattern) -> RouteRegistrar& {
+    attributes_.constraints.push_back(Constraint{std::string(parameter), std::string(pattern)});
+    return *this;
+  }
+
+  auto group(support::Callable<void()> body) -> void;
+
+  auto attributes() const noexcept -> GroupAttributes const& { return attributes_; }
+
+ private:
+  friend class Router;
+
+  explicit RouteRegistrar(Router& owner) : owner_(&owner) {}
+
+  Router* owner_;
+  GroupAttributes attributes_;
+};
+
+class Router {
+ public:
+  Router() = default;
+
+  auto add(http::MethodSet methods, std::string_view uri, Handler handler) -> PendingRoute {
+    auto pattern = UriPattern::parse(join_uri(merged_prefix(), uri));
+
+    RouteDefinition route(methods, std::move(pattern), std::move(handler));
+    route.set_name_prefix(merged_name_prefix());
+
+    for (auto const& g : groups_) {
+      for (auto const& m : g.middleware) route.add_middleware(m);
+      for (auto const& c : g.constraints) {
+        if (!route.pattern().has_parameter(c.parameter)) continue;
+        route.set_constraint(c.parameter, c.pattern);
+      }
+    }
+
+    routes_.push_back(std::move(route));
+    return PendingRoute(*this, routes_.size() - 1);
+  }
+
+  auto get(std::string_view uri, Handler handler) -> PendingRoute {
+    return add({http::Method::get, http::Method::head}, uri, std::move(handler));
+  }
+
+  auto head(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::Method::head, uri, std::move(handler));
+  }
+
+  auto post(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::Method::post, uri, std::move(handler));
+  }
+
+  auto put(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::Method::put, uri, std::move(handler));
+  }
+
+  auto patch(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::Method::patch, uri, std::move(handler));
+  }
+
+  auto delete_(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::Method::delete_, uri, std::move(handler));
+  }
+
+  auto options(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::Method::options, uri, std::move(handler));
+  }
+
+  auto any(std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::MethodSet::all(), uri, std::move(handler));
+  }
+
+  auto match(std::initializer_list<http::Method> methods, std::string_view uri, Handler handler) -> PendingRoute {
+    return add(http::MethodSet(methods), uri, std::move(handler));
+  }
+
+  auto prefix(std::string_view value) -> RouteRegistrar {
+    RouteRegistrar registrar(*this);
+    registrar.prefix(value);
+    return registrar;
+  }
+
+  auto name(std::string_view value) -> RouteRegistrar {
+    RouteRegistrar registrar(*this);
+    registrar.name(value);
+    return registrar;
+  }
+
+  auto middleware(std::string_view value) -> RouteRegistrar {
+    RouteRegistrar registrar(*this);
+    registrar.middleware(value);
+    return registrar;
+  }
+
+  auto middleware(std::initializer_list<std::string_view> values) -> RouteRegistrar {
+    RouteRegistrar registrar(*this);
+    registrar.middleware(values);
+    return registrar;
+  }
+
+  auto group(GroupAttributes attributes, support::Callable<void()> body) -> void {
+    groups_.push_back(std::move(attributes));
+    try {
+      body();
+    } catch (...) {
+      groups_.pop_back();
+      throw;
+    }
+    groups_.pop_back();
+  }
+
+  auto routes() const noexcept -> std::vector<RouteDefinition> const& { return routes_; }
+  auto size() const noexcept -> std::size_t { return routes_.size(); }
+  auto empty() const noexcept -> bool { return routes_.empty(); }
+
+  auto named(std::string_view name) const noexcept -> RouteDefinition const* {
+    if (name.empty()) return nullptr;
+    for (auto const& route : routes_)
+      if (route.name() == name) return &route;
+    return nullptr;
+  }
+
+  auto has(std::string_view name) const noexcept -> bool { return named(name) != nullptr; }
+
+  auto url(std::string_view name, std::span<Binding const> bindings) const -> std::string {
+    auto const* route = named(name);
+    if (route == nullptr) throw std::invalid_argument("adelie: no route named \"" + std::string(name) + '"');
+    return route->pattern().build(bindings);
+  }
+
+  auto url(std::string_view name, std::initializer_list<Binding> bindings) const -> std::string {
+    return url(name, std::span<Binding const>(bindings.begin(), bindings.size()));
+  }
+
+  auto url(std::string_view name) const -> std::string { return url(name, std::span<Binding const>{}); }
+
+  auto clear() -> void {
+    routes_.clear();
+    groups_.clear();
+  }
+
+ private:
+  friend class PendingRoute;
+  friend class RouteRegistrar;
+
+  auto at(std::size_t index) noexcept -> RouteDefinition& { return routes_[index]; }
+  auto at(std::size_t index) const noexcept -> RouteDefinition const& { return routes_[index]; }
+
+  auto assign_name(std::size_t index, std::string_view value) -> void {
+    auto& route = at(index);
+    auto candidate = std::string(route.name_prefix());
+    candidate += value;
+
+    for (std::size_t i = 0; i < routes_.size(); ++i) {
+      if (i == index) continue;
+      if (routes_[i].name() == candidate)
+        throw std::invalid_argument("adelie: duplicate route name \"" + candidate + '"');
+    }
+
+    route.set_name(value);
+  }
+
+  auto merged_prefix() const -> std::string {
+    std::string out;
+    for (auto const& g : groups_) {
+      if (g.prefix.empty()) continue;
+      out = join_uri(out, g.prefix);
+    }
+    return out;
+  }
+
+  auto merged_name_prefix() const -> std::string {
+    std::string out;
+    for (auto const& g : groups_) out += g.name;
+    return out;
+  }
+
+  std::vector<RouteDefinition> routes_;
+  std::vector<GroupAttributes> groups_;
+};
+
+}
+
+namespace adelie::routing {
+
+auto PendingRoute::name(std::string_view value) -> PendingRoute& {
+  owner_->assign_name(index_, value);
+  return *this;
+}
+
+auto PendingRoute::middleware(std::string_view value) -> PendingRoute& {
+  owner_->at(index_).add_middleware(value);
+  return *this;
+}
+
+auto PendingRoute::middleware(std::initializer_list<std::string_view> values) -> PendingRoute& {
+  for (auto const value : values) owner_->at(index_).add_middleware(value);
+  return *this;
+}
+
+auto PendingRoute::where(std::string_view parameter, std::string_view pattern) -> PendingRoute& {
+  auto& route = owner_->at(index_);
+  if (!route.pattern().has_parameter(parameter))
+    throw std::invalid_argument("adelie: route \"" + std::string(route.uri()) + "\" has no parameter \"" +
+                                std::string(parameter) + '"');
+  route.set_constraint(parameter, pattern);
+  return *this;
+}
+
+auto PendingRoute::definition() const -> RouteDefinition const& { return owner_->at(index_); }
+
+auto RouteRegistrar::group(support::Callable<void()> body) -> void {
+  owner_->group(std::move(attributes_), std::move(body));
+}
+
+}

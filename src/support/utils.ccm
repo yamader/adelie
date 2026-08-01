@@ -1,0 +1,14 @@
+module;
+
+#include <boost/core/detail/string_view.hpp>
+#include <string_view>
+
+export module adelie.support.utils;
+
+export namespace adelie::support {
+
+auto view_of(boost::core::string_view s) noexcept -> std::string_view { return {s.data(), s.size()}; }
+
+auto boost_view(std::string_view s) noexcept -> boost::core::string_view { return {s.data(), s.size()}; }
+
+}

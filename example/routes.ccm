@@ -1,0 +1,42 @@
+export module example.routes;
+
+import adelie;
+
+export namespace example {
+
+auto define_routes() -> void;
+
+}
+
+namespace example::handlers {
+
+using adelie::Request;
+using adelie::Response;
+
+auto index(Request const&) -> Response { return Response::text("Adelie"); }
+
+auto show_user(Request const& req) -> Response { return Response::json({{"id", req.route("id")}}); }
+
+auto no_body(Request const&) -> Response { return Response::no_content(); }
+
+}
+
+namespace example {
+
+auto define_routes() -> void {
+  using adelie::Route;
+
+  Route::get("/", handlers::index).name("home");
+
+  Route::get("/users/{id}", handlers::show_user).name("users.show").where("id", "[0-9]+");
+  Route::post("/users", handlers::no_body).name("users.store");
+  Route::get("/posts/{year}/{slug?}", handlers::index).name("posts.show");
+  Route::get("/assets/{path*}", handlers::index).name("assets");
+
+  Route::prefix("admin").name("admin.").middleware({"auth", "verified"}).group([] {
+    Route::get("/dashboard", handlers::index).name("dashboard");
+    Route::delete_("/users/{id}", handlers::no_body).name("users.destroy");
+  });
+}
+
+}
