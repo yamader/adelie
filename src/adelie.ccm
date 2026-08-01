@@ -5,10 +5,13 @@ export import adelie.http;
 export import adelie.routing.pattern;
 export import adelie.routing.route;
 export import adelie.routing.router;
+export import adelie.facades.di;
 export import adelie.facades.route;
 export import adelie.server;
 
 export namespace adelie {
+
+namespace di = facades::di;
 
 using facades::Route;
 

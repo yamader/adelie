@@ -3,7 +3,11 @@
 #include <string_view>
 
 import adelie;
-import example.routes;
+import example.controllers;
+
+namespace example {
+auto define_routes() -> void;
+}
 
 using adelie::Route;
 
@@ -25,10 +29,7 @@ auto print_table() -> void {
 
 auto print_urls() -> void {
   std::printf("\nusers.show           -> %s\n", Route::url("users.show", {{"id", "42"}}).c_str());
-  std::printf("posts.show (no slug) -> %s\n", Route::url("posts.show", {{"year", "2026"}}).c_str());
-  std::printf("posts.show (slug)    -> %s\n",
-              Route::url("posts.show", {{"year", "2026"}, {"slug", "hello world"}}).c_str());
-  std::printf("assets               -> %s\n", Route::url("assets", {{"path", "css/app.css"}}).c_str());
+  std::printf("users.index          -> %s\n", Route::url("users.index").c_str());
   std::printf("admin.users.destroy  -> %s\n", Route::url("admin.users.destroy", {{"id", "7"}}).c_str());
 
   auto const* show = Route::named("users.show");
@@ -46,6 +47,10 @@ auto serve() -> int {
 }
 
 auto main(int argc, char** argv) -> int {
+  adelie::di::install<example::HomeController, example::UserController, example::DashboardController>(
+      adelie::di::make(adelie::di::bind<example::UserSource>().to<example::UserRepository>(),
+                       adelie::di::bind<example::Logger>().in(adelie::di::singleton)));
+
   example::define_routes();
 
   if (argc > 1 && std::string_view(argv[1]) == "serve") return serve();

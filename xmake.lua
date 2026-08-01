@@ -10,8 +10,8 @@ target 'adelie'
 set_kind 'shared'
 add_files('src/**.ccm', { public = true })
 add_files 'src/**.cc'
-add_packages('boost_http', 'boost_capy', 'boost', { public = true })
-add_packages('boost_beast2', 'boost_di')
+add_packages('boost_http', 'boost_capy', 'boost', 'boost_di', { public = true })
+add_packages 'boost_beast2'
 
 target 'example'
 set_kind 'binary'

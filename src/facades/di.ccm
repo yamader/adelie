@@ -1,0 +1,119 @@
+module;
+
+#include <boost/di.hpp>
+#include <optional>
+#include <stdexcept>
+#include <utility>
+
+export module adelie.facades.di;
+
+import adelie.http;
+import adelie.routing.route;
+
+namespace bdi = boost::di;
+
+namespace adelie::facades::di::detail {
+
+template <class Root>
+auto factory() -> Root (*&)() {
+  static Root (*instance)() = nullptr;
+  return instance;
+}
+
+template <class Injector>
+auto storage() -> std::optional<Injector>& {
+  static std::optional<Injector> instance;
+  return instance;
+}
+
+template <class Injector>
+auto held() -> Injector& {
+  auto& instance = storage<Injector>();
+  if (!instance) throw std::runtime_error("adelie: no injector installed for this type");
+  return *instance;
+}
+
+template <class Root, class Injector>
+auto attach() -> void {
+  factory<Root>() = [] { return held<Injector>().template create<Root>(); };
+}
+
+}
+
+export namespace adelie::facades::di {
+
+using boost::di::bind;
+
+constexpr auto deduce = bdi::scopes::deduce{};
+constexpr auto singleton = bdi::scopes::singleton{};
+constexpr auto unique = bdi::scopes::unique{};
+
+template <class... Bindings>
+auto make(Bindings... bindings) {
+  using config = BOOST_DI_CFG;
+  using policies =
+      decltype(bdi::aux::declval<config*>()->policies(bdi::aux::declval<bdi::concepts::injector<config>*>()));
+  return bdi::core::injector<config, policies, Bindings...>{bdi::core::init{}, static_cast<Bindings&&>(bindings)...};
+}
+
+template <class... Roots, class Injector>
+auto install(Injector injector) -> void {
+  detail::storage<Injector>().emplace(std::move(injector));
+  (..., detail::attach<Roots, Injector>());
+}
+
+template <class... Roots, class Injector>
+auto extend() -> void {
+  (..., detail::attach<Roots, Injector>());
+}
+
+template <class Injector>
+auto installed() -> Injector& {
+  return detail::held<Injector>();
+}
+
+template <class Root>
+auto provides() noexcept -> bool {
+  return detail::factory<Root>() != nullptr;
+}
+
+template <class Root>
+auto create() -> Root {
+  auto const build = detail::factory<Root>();
+  if (build == nullptr) throw std::runtime_error("adelie: this type was never installed as a DI root");
+  return build();
+}
+
+template <class C>
+auto handler(http::Response (C::*method)(http::Request const&)) -> routing::Handler {
+  return [method](http::Request const& request) {
+    auto controller = create<C>();
+    return (controller.*method)(request);
+  };
+}
+
+template <class C>
+auto handler(http::Response (C::*method)(http::Request const&) const) -> routing::Handler {
+  return [method](http::Request const& request) {
+    auto const controller = create<C>();
+    return (controller.*method)(request);
+  };
+}
+
+template <class C>
+auto handler(http::Response (C::*method)()) -> routing::Handler {
+  return [method](http::Request const&) {
+    auto controller = create<C>();
+    return (controller.*method)();
+  };
+}
+
+template <class C>
+auto handler(http::Response (C::*method)() const) -> routing::Handler {
+  return [method](http::Request const&) {
+    auto const controller = create<C>();
+    return (controller.*method)();
+  };
+}
+
+}

@@ -1,0 +1,91 @@
+module;
+
+#include <string>
+#include <string_view>
+
+export module example.controllers;
+
+import adelie;
+
+export namespace example {
+
+using adelie::Next;
+using adelie::Request;
+using adelie::Response;
+using adelie::Status;
+
+class Logger {
+ public:
+  auto note(std::string_view message) -> void {
+    ++count_;
+    last_ = message;
+  }
+
+  auto count() const noexcept -> int { return count_; }
+  auto last() const noexcept -> std::string_view { return last_; }
+
+ private:
+  int count_ = 0;
+  std::string last_;
+};
+
+class UserSource {
+ public:
+  virtual ~UserSource() = default;
+  virtual auto find(std::string_view id) const -> std::string = 0;
+  virtual auto count() const -> int = 0;
+};
+
+class UserRepository : public UserSource {
+ public:
+  explicit UserRepository(Logger& log) : log_(&log) {}
+
+  auto find(std::string_view id) const -> std::string override {
+    log_->note("repository.find");
+    return "user-" + std::string(id);
+  }
+
+  auto count() const -> int override {
+    log_->note("repository.count");
+    return 3;
+  }
+
+ private:
+  Logger* log_;
+};
+
+class HomeController {
+ public:
+  auto index(Request const&) -> Response { return Response::text("Adelie"); }
+};
+
+class UserController {
+ public:
+  UserController(UserSource& users, Logger& log) : users_(&users), log_(&log) {}
+
+  auto index(Request const&) -> Response {
+    return Response::json({{"count", std::to_string(users_->count())}, {"log", std::to_string(log_->count())}});
+  }
+
+  auto show(Request const& req) -> Response {
+    return Response::json(
+        {{"id", req.route("id")}, {"name", users_->find(req.route("id"))}, {"log", std::to_string(log_->count())}});
+  }
+
+  auto store(Request const& req) -> Response { return Response::json({{"received", req.body()}}, Status::created); }
+
+  auto destroy(Request const&) -> Response { return Response::no_content(); }
+
+ private:
+  UserSource* users_;
+  Logger* log_;
+};
+
+class DashboardController {
+ public:
+  auto show(Request const& req) -> Response {
+    return Response::json({{"route", req.route_name()}, {"user", req.header("x-user")}});
+  }
+};
+
+}
