@@ -1,0 +1,13 @@
+module;
+
+export module example.config;
+
+import adelie;
+
+export namespace example {
+
+inline auto setup_config() -> void {
+  adelie::Config::defaults({{"app.name", "adelie"}, {"host", "127.0.0.1"}, {"port", "8080"}, {"debug", "false"}});
+}
+
+}

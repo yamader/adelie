@@ -16,10 +16,11 @@ inline auto setup() -> void {
     return std::nullopt;
   });
 
-  adelie::auth::authenticator().verify_basic([](std::string_view username, std::string_view password) -> std::optional<adelie::auth::User> {
-    if (username == "admin" && password == "password") return adelie::auth::User{"2", "Bob", "admin"};
-    return std::nullopt;
-  });
+  adelie::auth::authenticator().verify_basic(
+      [](std::string_view username, std::string_view password) -> std::optional<adelie::auth::User> {
+        if (username == "admin" && password == "password") return adelie::auth::User{"2", "Bob", "admin"};
+        return std::nullopt;
+      });
 }
 
 }

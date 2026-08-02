@@ -1,7 +1,13 @@
 module;
 
 #include <boost/core/detail/string_view.hpp>
+#include <cctype>
+#include <charconv>
+#include <cstdint>
+#include <cstdlib>
+#include <string>
 #include <string_view>
+#include <system_error>
 
 export module adelie.support.utils;
 
@@ -10,5 +16,34 @@ export namespace adelie::support {
 auto view_of(boost::core::string_view s) noexcept -> std::string_view { return {s.data(), s.size()}; }
 
 auto boost_view(std::string_view s) noexcept -> boost::core::string_view { return {s.data(), s.size()}; }
+
+auto env(std::string_view name) -> std::string {
+  if (auto const* value = std::getenv(std::string(name).c_str())) return value;
+  return {};
+}
+
+auto env(std::string_view name, std::string_view fallback) -> std::string {
+  if (auto const* value = std::getenv(std::string(name).c_str())) return value;
+  return std::string(fallback);
+}
+
+auto env_int(std::string_view name, std::int64_t fallback) -> std::int64_t {
+  auto const value = env(name);
+  if (value.empty()) return fallback;
+  std::int64_t result = fallback;
+  auto const [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), result);
+  return ec == std::errc{} ? result : fallback;
+}
+
+auto env_bool(std::string_view name, bool fallback) -> bool {
+  auto const value = env(name);
+  if (value.empty()) return fallback;
+  std::string lowered;
+  lowered.reserve(value.size());
+  for (char const c : value) lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+  if (lowered == "1" || lowered == "true" || lowered == "yes" || lowered == "on") return true;
+  if (lowered == "0" || lowered == "false" || lowered == "no" || lowered == "off") return false;
+  return fallback;
+}
 
 }

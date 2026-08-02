@@ -3,6 +3,7 @@
 #include <string_view>
 
 import adelie;
+import example.config;
 import example.controllers;
 import example.models;
 
@@ -10,9 +11,9 @@ namespace example {
 auto define_routes() -> void;
 }
 
-using adelie::Config;
 using adelie::DB;
 using adelie::Route;
+using adelie::db::Config;
 using example::User;
 
 namespace {
@@ -59,6 +60,13 @@ auto print_db() -> void {
   }
 }
 
+auto print_config() -> void {
+  std::printf("\nconfig: app.name=%s host=%s port=%lld debug=%s\n", adelie::Config::get("app.name").c_str(),
+              adelie::Config::get("host").c_str(), static_cast<long long>(adelie::Config::get_int("port")),
+              adelie::Config::get_bool("debug") ? "true" : "false");
+  std::printf("env: HOME=%s\n", adelie::support::env("HOME", "?").c_str());
+}
+
 auto serve() -> int {
   adelie::Server server(Route::router());
   server.workers(4).listen("127.0.0.1", 8080);
@@ -70,6 +78,7 @@ auto serve() -> int {
 }
 
 auto main(int argc, char** argv) -> int {
+  example::setup_config();
   adelie::di::install<example::HomeController, example::UserController, example::DashboardController>(
       adelie::di::make(adelie::di::bind<example::UserSource>().to<example::UserRepository>(),
                        adelie::di::bind<example::Logger>().in(adelie::di::singleton)));
@@ -82,4 +91,5 @@ auto main(int argc, char** argv) -> int {
   print_table();
   print_urls();
   print_db();
+  print_config();
 }

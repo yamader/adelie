@@ -215,8 +215,6 @@ auto make_cookie(std::string_view name, std::string_view value) -> std::string {
   return std::string(name) + "=" + std::string(value) + "; Path=/; HttpOnly; SameSite=Lax";
 }
 
-auto clear_cookie(std::string_view name) -> std::string {
-  return std::string(name) + "=; Path=/; HttpOnly; Max-Age=0";
-}
+auto clear_cookie(std::string_view name) -> std::string { return std::string(name) + "=; Path=/; HttpOnly; Max-Age=0"; }
 
 }
