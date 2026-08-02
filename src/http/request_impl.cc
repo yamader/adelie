@@ -5,6 +5,7 @@ module;
 #include <boost/url/url_view.hpp>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -44,6 +45,7 @@ struct Request::Impl {
   std::vector<std::pair<std::string, std::string>> query_params;
   std::string route_name;
   std::size_t path_len = 1;
+  mutable std::optional<Session> session;
 
   auto reparse_target() -> void {
     query_params.clear();
@@ -159,6 +161,11 @@ auto Request::route_name() const noexcept -> std::string_view { return impl_->ro
 auto Request::set_route_name(std::string name) -> Request& {
   impl_->route_name = std::move(name);
   return *this;
+}
+
+auto Request::session() const -> Session& {
+  if (!impl_->session) impl_->session.emplace();
+  return *impl_->session;
 }
 
 }

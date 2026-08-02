@@ -3,3 +3,4 @@ export module adelie.http;
 export import :types;
 export import :request;
 export import :response;
+export import :session;

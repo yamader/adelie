@@ -9,6 +9,7 @@ module;
 export module adelie.http:request;
 
 import :types;
+import :session;
 
 export namespace adelie::http {
 
@@ -51,6 +52,8 @@ class Request {
 
   auto route_name() const noexcept -> std::string_view;
   auto set_route_name(std::string name) -> Request&;
+
+  auto session() const -> Session&;
 
  private:
   struct Impl;

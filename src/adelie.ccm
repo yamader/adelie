@@ -5,6 +5,7 @@ export import adelie.http;
 export import adelie.routing.pattern;
 export import adelie.routing.route;
 export import adelie.routing.router;
+export import adelie.auth;
 export import adelie.facades.di;
 export import adelie.facades.route;
 export import adelie.db;
@@ -33,6 +34,11 @@ using http::MethodSet;
 using http::Request;
 using http::Response;
 using http::Status;
+
+using auth::Authenticator;
+using auth::MemorySessionStore;
+using auth::SessionStore;
+using auth::User;
 
 using routing::Binding;
 using routing::Constraint;

@@ -1,0 +1,96 @@
+module;
+
+#include <cstddef>
+#include <random>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.http:session;
+
+export namespace adelie::http {
+
+class Session {
+ public:
+  Session() = default;
+
+  auto id() const noexcept -> std::string_view { return id_; }
+  auto set_id(std::string value) -> Session& {
+    id_ = std::move(value);
+    return *this;
+  }
+  auto assign_id() -> Session& {
+    id_ = generate_id();
+    return *this;
+  }
+
+  auto has(std::string_view key) const noexcept -> bool {
+    for (auto const& [k, v] : attributes_)
+      if (k == key) return true;
+    return false;
+  }
+
+  auto get(std::string_view key, std::string_view fallback = {}) const noexcept -> std::string_view {
+    for (auto const& [k, v] : attributes_)
+      if (k == key) return v;
+    return fallback;
+  }
+
+  auto set(std::string_view key, std::string value) -> Session& {
+    for (auto& [k, v] : attributes_) {
+      if (k != key) continue;
+      v = std::move(value);
+      return *this;
+    }
+    attributes_.emplace_back(std::string(key), std::move(value));
+    return *this;
+  }
+
+  auto remove(std::string_view key) -> Session& {
+    for (auto it = attributes_.begin(); it != attributes_.end(); ++it) {
+      if (it->first != key) continue;
+      attributes_.erase(it);
+      break;
+    }
+    return *this;
+  }
+
+  auto clear() -> Session& {
+    id_.clear();
+    attributes_.clear();
+    authenticated_ = false;
+    return *this;
+  }
+
+  auto keys() const -> std::vector<std::string> {
+    std::vector<std::string> out;
+    out.reserve(attributes_.size());
+    for (auto const& [k, v] : attributes_) out.push_back(k);
+    return out;
+  }
+
+  auto authenticated() const noexcept -> bool { return authenticated_; }
+  auto set_authenticated(bool value) -> Session& {
+    authenticated_ = value;
+    return *this;
+  }
+
+  auto empty() const noexcept -> bool { return attributes_.empty(); }
+  auto size() const noexcept -> std::size_t { return attributes_.size(); }
+
+ private:
+  static auto generate_id() -> std::string {
+    static thread_local std::mt19937_64 generator{std::random_device{}()};
+    std::string out(32, '0');
+    constexpr std::string_view alphabet = "0123456789abcdef";
+    for (auto& c : out) c = alphabet[generator() % alphabet.size()];
+    return out;
+  }
+
+  std::string id_;
+  std::vector<std::pair<std::string, std::string>> attributes_;
+  bool authenticated_ = false;
+};
+
+}

@@ -1,0 +1,87 @@
+module;
+
+#include <map>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+
+export module adelie.auth;
+
+import adelie.http;
+import adelie.routing.route;
+import adelie.support.callable;
+
+export namespace adelie::auth {
+
+struct User {
+  std::string id;
+  std::string name;
+  std::string role;
+};
+
+constexpr std::string_view user_id_key = "user_id";
+constexpr std::string_view user_name_key = "user_name";
+constexpr std::string_view user_role_key = "user_role";
+
+class SessionStore {
+ public:
+  virtual ~SessionStore() = default;
+  virtual auto load(std::string_view id) -> std::optional<http::Session> = 0;
+  virtual auto save(http::Session const& session) -> void = 0;
+  virtual auto destroy(std::string_view id) -> void = 0;
+};
+
+class MemorySessionStore final : public SessionStore {
+ public:
+  auto load(std::string_view id) -> std::optional<http::Session> override;
+  auto save(http::Session const& session) -> void override;
+  auto destroy(std::string_view id) -> void override;
+
+ private:
+  mutable std::mutex mutex_;
+  std::map<std::string, http::Session, std::less<>> entries_;
+};
+
+class Authenticator {
+ public:
+  using TokenVerifier = support::Callable<std::optional<User>(std::string_view)>;
+  using BasicVerifier = support::Callable<std::optional<User>(std::string_view, std::string_view)>;
+
+  explicit Authenticator(SessionStore& store) : Authenticator(store, "session") {}
+  Authenticator(SessionStore& store, std::string_view cookie_name);
+
+  auto verify_bearer(TokenVerifier verifier) -> Authenticator&;
+  auto verify_basic(BasicVerifier verifier) -> Authenticator&;
+
+  auto find_user_by_token(std::string_view token) const -> std::optional<User>;
+  auto find_user_by_credentials(std::string_view username, std::string_view password) const -> std::optional<User>;
+
+  auto cookie_name() const noexcept -> std::string_view;
+
+  auto middleware() const -> routing::Middleware;
+
+  auto issue(http::Request const& request, http::Response& response, User user) -> void;
+  auto destroy(http::Request const& request, http::Response& response) -> void;
+
+ private:
+  SessionStore* store_;
+  std::string cookie_name_;
+  TokenVerifier bearer_verifier_;
+  BasicVerifier basic_verifier_;
+};
+
+auto bearer_token(http::Request const& request) -> std::string_view;
+auto basic_credentials(http::Request const& request) -> std::pair<std::string, std::string>;
+auto current_user(http::Request const& request) -> std::optional<User>;
+
+auto authenticator() -> Authenticator&;
+auto login(http::Request const& request) -> http::Response;
+auto logout(http::Request const& request) -> http::Response;
+
+auto parse_cookie(http::Request const& request, std::string_view name) -> std::string;
+auto make_cookie(std::string_view name, std::string_view value) -> std::string;
+auto clear_cookie(std::string_view name) -> std::string;
+
+}

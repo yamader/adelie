@@ -92,7 +92,9 @@ class UserController {
 class DashboardController {
  public:
   auto show(Request const& req) -> Response {
-    return Response::json({{"route", req.route_name()}, {"user", req.header("x-user")}});
+    auto const user = adelie::auth::current_user(req);
+    return Response::json(
+        {{"route", req.route_name()}, {"user", user ? user->name : "anonymous"}, {"role", user ? user->role : ""}});
   }
 };
 

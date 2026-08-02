@@ -1,0 +1,25 @@
+module;
+
+#include <optional>
+#include <string>
+#include <string_view>
+
+export module example.auth;
+
+import adelie;
+
+export namespace example::auth {
+
+inline auto setup() -> void {
+  adelie::auth::authenticator().verify_bearer([](std::string_view token) -> std::optional<adelie::auth::User> {
+    if (token == "secret-token") return adelie::auth::User{"1", "Alice", "admin"};
+    return std::nullopt;
+  });
+
+  adelie::auth::authenticator().verify_basic([](std::string_view username, std::string_view password) -> std::optional<adelie::auth::User> {
+    if (username == "admin" && password == "password") return adelie::auth::User{"2", "Bob", "admin"};
+    return std::nullopt;
+  });
+}
+
+}
