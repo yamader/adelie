@@ -3,16 +3,10 @@ module;
 #include <boost/http/request.hpp>
 #include <boost/url/parse.hpp>
 #include <boost/url/url_view.hpp>
-#include <cstddef>
-#include <memory>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 module adelie.http;
 
+import std;
 import adelie.support.utils;
 
 namespace adelie::http {
@@ -63,7 +57,7 @@ struct Request::Impl {
 Request::Request() : impl_(std::make_unique<Impl>()) {}
 
 Request::Request(Method method, std::string_view target) : impl_(std::make_unique<Impl>()) {
-  impl_->message = boost::http::request(method, boost_view(target));
+  impl_->message = boost::http::request{method, boost_view(target)};
   impl_->reparse_target();
 }
 
@@ -112,7 +106,7 @@ auto Request::set_header(Field name, std::string_view value) -> Request& {
 
 auto Request::headers() const -> std::vector<Header> {
   std::vector<Header> out;
-  for (auto const& f : impl_->message) out.push_back(Header{std::string(f.name), std::string(f.value)});
+  for (auto const& f : impl_->message) out.push_back(Header{std::string{f.name}, std::string{f.value}});
   return out;
 }
 

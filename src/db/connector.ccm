@@ -1,10 +1,6 @@
-module;
-
-#include <memory>
-#include <string_view>
-
 export module adelie.db:connector;
 
+import std;
 import :session;
 import :types;
 
@@ -15,7 +11,7 @@ class Connector {
   virtual ~Connector() = default;
 
   virtual auto driver() const noexcept -> std::string_view = 0;
-  virtual auto open(Config const& config) -> std::unique_ptr<Session> = 0;
+  virtual auto open(DatabaseConfig const& config) -> std::unique_ptr<Session> = 0;
 };
 
 }

@@ -8,26 +8,17 @@ module;
 #include <boost/http/config.hpp>
 #include <boost/http/server/route_handler.hpp>
 #include <boost/http/server/router.hpp>
-#include <cstddef>
-#include <cstdint>
-#include <exception>
-#include <memory>
-#include <regex>
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 module adelie.server;
 
+import std;
 import adelie.http;
 import adelie.routing.pattern;
 import adelie.routing.route;
 import adelie.support.utils;
 
 namespace adelie::server {
+
 namespace {
 
 using support::boost_view;
@@ -56,7 +47,7 @@ auto compile_constraints(routing::RouteDefinition const& route) -> std::vector<C
   std::vector<CompiledConstraint> out;
   for (auto const& constraint : route.constraints())
     out.push_back(CompiledConstraint{constraint.parameter,
-                                     std::regex(constraint.pattern, std::regex::ECMAScript | std::regex::optimize)});
+                                     std::regex{constraint.pattern, std::regex::ECMAScript | std::regex::optimize}});
   return out;
 }
 
@@ -67,14 +58,14 @@ auto resolve_chain(routing::Router const& routes, routing::RouteDefinition const
     auto const* middleware = routes.middleware_for(name);
     if (middleware == nullptr)
       throw std::invalid_argument("adelie: unregistered middleware \"" + name + "\" on route \"" +
-                                  std::string(route.uri()) + '"');
+                                  std::string{route.uri()} + '"');
     out.push_back(middleware);
   }
   return out;
 }
 
 auto make_request(boost::http::route_params& p, std::string name) -> http::Request {
-  http::Request request(p.req.method(), view_of(p.req.target()));
+  http::Request request{p.req.method(), view_of(p.req.target())};
   for (auto const& field : p.req) request.set_header(view_of(field.name), view_of(field.value));
   request.set_route_name(std::move(name));
   request.set_route_parameters(p.params);
@@ -92,7 +83,7 @@ auto guarded(routing::Handler const& handler, std::span<routing::Middleware cons
   try {
     return run_chain(chain, handler, request);
   } catch (std::exception const& e) {
-    return http::Response::text(std::string("adelie: ") + e.what(), http::Status::internal_server_error);
+    return http::Response::text(std::string{"adelie: "} + e.what(), http::Status::internal_server_error);
   } catch (...) {
     return http::Response::text("adelie: unknown error", http::Status::internal_server_error);
   }
@@ -111,7 +102,7 @@ auto make_fallback(routing::Router const& routes) {
 }
 
 auto make_handler(routing::Router const& routes, routing::RouteDefinition const& route) {
-  return [handler = &route.handler(), name = std::string(route.name()), constraints = compile_constraints(route),
+  return [handler = &route.handler(), name = std::string{route.name()}, constraints = compile_constraints(route),
           chain = resolve_chain(routes, route)](boost::http::route_params& p) -> boost::http::route_task {
     for (auto const& constraint : constraints) {
       auto const* value = find_parameter(p.params, constraint.parameter);
@@ -201,7 +192,7 @@ auto Server::run() -> void {
                                     boost::http::make_parser_config(boost::http::parser_config(true)),
                                     boost::http::make_serializer_config(boost::http::serializer_config{}));
 
-  if (auto const ec = server.bind(boost::corosio::endpoint(addr, impl_->port)))
+  if (auto const ec = server.bind(boost::corosio::endpoint{addr, impl_->port}))
     throw std::runtime_error("adelie: cannot bind " + impl_->address + ':' + std::to_string(impl_->port) + " - " +
                              ec.message());
 

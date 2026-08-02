@@ -1,15 +1,10 @@
 module;
 
 #include <boost/core/detail/string_view.hpp>
-#include <cctype>
-#include <charconv>
-#include <cstdint>
-#include <cstdlib>
-#include <string>
-#include <string_view>
-#include <system_error>
 
 export module adelie.support.utils;
+
+import std;
 
 export namespace adelie::support {
 
@@ -18,13 +13,13 @@ auto view_of(boost::core::string_view s) noexcept -> std::string_view { return {
 auto boost_view(std::string_view s) noexcept -> boost::core::string_view { return {s.data(), s.size()}; }
 
 auto env(std::string_view name) -> std::string {
-  if (auto const* value = std::getenv(std::string(name).c_str())) return value;
+  if (auto const* value = std::getenv(std::string{name}.c_str())) return value;
   return {};
 }
 
 auto env(std::string_view name, std::string_view fallback) -> std::string {
-  if (auto const* value = std::getenv(std::string(name).c_str())) return value;
-  return std::string(fallback);
+  if (auto const* value = std::getenv(std::string{name}.c_str())) return value;
+  return std::string{fallback};
 }
 
 auto env_int(std::string_view name, std::int64_t fallback) -> std::int64_t {

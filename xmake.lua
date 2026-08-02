@@ -5,14 +5,16 @@ add_requires('boost_beast2', 'boost_capy', 'boost_di', 'boost_http')
 add_requires('boost', { configs = { json = true, url = true } }) -- same config as boost_{beast2,http}
 add_requires('sqlite3', { optional = true })
 
-set_languages 'c++20'
+set_languages 'c++23'
+
+-- GCC < 16.2 lazy module loading hits bug #124953 ("failed to load pendings")
+add_cxxflags '-fno-module-lazy'
 
 target 'adelie'
 set_kind 'shared'
 add_files('src/**.ccm', { public = true })
 add_files 'src/**.cc'
-add_packages('boost_http', 'boost_capy', 'boost', 'boost_di', { public = true })
-add_packages 'boost_beast2'
+add_packages('boost_http', 'boost_capy', 'boost', 'boost_beast2', 'boost_di', { public = true })
 add_packages('sqlite3', { optional = true })
 
 target 'example'

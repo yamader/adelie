@@ -1,17 +1,11 @@
 module;
 
 #include <boost/http/response.hpp>
-#include <boost/http/status.hpp>
 #include <boost/json.hpp>
-#include <initializer_list>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 module adelie.http;
 
+import std;
 import adelie.support.utils;
 
 namespace adelie::http {
@@ -47,19 +41,19 @@ auto Response::operator=(Response&& other) noexcept -> Response& = default;
 Response::~Response() = default;
 
 auto Response::text(std::string body, Status status) -> Response {
-  Response r(status, std::move(body));
+  Response r{status, std::move(body)};
   r.set_header(Field::content_type, "text/plain; charset=utf-8");
   return r;
 }
 
 auto Response::html(std::string body, Status status) -> Response {
-  Response r(status, std::move(body));
+  Response r{status, std::move(body)};
   r.set_header(Field::content_type, "text/html; charset=utf-8");
   return r;
 }
 
 auto Response::json(std::string body, Status status) -> Response {
-  Response r(status, std::move(body));
+  Response r{status, std::move(body)};
   r.set_header(Field::content_type, "application/json");
   return r;
 }
@@ -71,10 +65,10 @@ auto Response::json(std::initializer_list<std::pair<std::string_view, std::strin
   return json(boost::json::serialize(object), status);
 }
 
-auto Response::no_content() -> Response { return Response(Status::no_content); }
+auto Response::no_content() -> Response { return Response{Status::no_content}; }
 
 auto Response::redirect(std::string_view location, Status status) -> Response {
-  Response r(status);
+  Response r{status};
   r.set_header(Field::location, location);
   return r;
 }
@@ -114,7 +108,7 @@ auto Response::set_header(Field name, std::string_view value) -> Response& {
 
 auto Response::headers() const -> std::vector<Header> {
   std::vector<Header> out;
-  for (auto const& f : impl_->message) out.push_back(Header{std::string(f.name), std::string(f.value)});
+  for (auto const& f : impl_->message) out.push_back(Header{std::string{f.name}, std::string{f.value}});
   return out;
 }
 

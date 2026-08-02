@@ -1,10 +1,7 @@
-#include <memory>
-#include <string>
-#include <string_view>
-
+import std;
 import adelie;
-import example.controllers;
 import example.auth;
+import example.controllers;
 
 namespace example::middleware {
 
@@ -21,8 +18,6 @@ auto verified(Request&, Next const& next) -> Response {
 namespace example {
 
 auto define_routes() -> void {
-  using adelie::Route;
-
   example::auth::setup();
 
   Route::alias_middleware("auth", adelie::auth::authenticator().middleware());

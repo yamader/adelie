@@ -1,18 +1,14 @@
 module;
 
 #include <boost/di.hpp>
-#include <optional>
-#include <stdexcept>
-#include <utility>
 
-export module adelie.facades.di;
+export module adelie.support.di;
 
+import std;
 import adelie.http;
 import adelie.routing.route;
 
-namespace bdi = boost::di;
-
-namespace adelie::facades::di::detail {
+namespace adelie::support::di::detail {
 
 template <class Root>
 auto factory() -> Root (*&)() {
@@ -40,20 +36,21 @@ auto attach() -> void {
 
 }
 
-export namespace adelie::facades::di {
+export namespace adelie::support::di {
 
 using boost::di::bind;
 
-constexpr auto deduce = bdi::scopes::deduce{};
-constexpr auto singleton = bdi::scopes::singleton{};
-constexpr auto unique = bdi::scopes::unique{};
+constexpr auto deduce = boost::di::scopes::deduce{};
+constexpr auto singleton = boost::di::scopes::singleton{};
+constexpr auto unique = boost::di::scopes::unique{};
 
 template <class... Bindings>
 auto make(Bindings... bindings) {
   using config = BOOST_DI_CFG;
-  using policies =
-      decltype(bdi::aux::declval<config*>()->policies(bdi::aux::declval<bdi::concepts::injector<config>*>()));
-  return bdi::core::injector<config, policies, Bindings...>{bdi::core::init{}, static_cast<Bindings&&>(bindings)...};
+  using policies = decltype(boost::di::aux::declval<config*>()->policies(
+      boost::di::aux::declval<boost::di::concepts::injector<config>*>()));
+  return boost::di::core::injector<config, policies, Bindings...>{boost::di::core::init{},
+                                                                  static_cast<Bindings&&>(bindings)...};
 }
 
 template <class... Roots, class Injector>

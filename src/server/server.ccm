@@ -1,12 +1,6 @@
-module;
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string_view>
-
 export module adelie.server;
 
+import std;
 import adelie.routing.router;
 
 export namespace adelie::server {

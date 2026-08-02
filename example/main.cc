@@ -1,26 +1,24 @@
-#include <cstdio>
-#include <string>
-#include <string_view>
-
+import std;
 import adelie;
 import example.config;
 import example.controllers;
 import example.models;
 
 namespace example {
+
 auto define_routes() -> void;
+
 }
 
-using adelie::DB;
-using adelie::Route;
-using adelie::db::Config;
+using adelie::db::connect;
+using adelie::db::execute;
 using example::User;
 
 namespace {
 
 auto seed_database() -> void {
-  DB::connect(Config{.connection = ":memory:", .options = {{"foreign_keys", "1"}}});
-  DB::execute(
+  connect(adelie::db::DatabaseConfig{.connection = ":memory:", .options = {{"foreign_keys", "1"}}});
+  execute(
       "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
       "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)");
   User::create({{"name", "Alice"}});
@@ -61,14 +59,14 @@ auto print_db() -> void {
 }
 
 auto print_config() -> void {
-  std::printf("\nconfig: app.name=%s host=%s port=%lld debug=%s\n", adelie::Config::get("app.name").c_str(),
-              adelie::Config::get("host").c_str(), static_cast<long long>(adelie::Config::get_int("port")),
-              adelie::Config::get_bool("debug") ? "true" : "false");
+  std::printf("\nconfig: app.name=%s host=%s port=%lld debug=%s\n", Config::get("app.name").c_str(),
+              Config::get("host").c_str(), static_cast<long long>(Config::get_int("port")),
+              Config::get_bool("debug") ? "true" : "false");
   std::printf("env: HOME=%s\n", adelie::support::env("HOME", "?").c_str());
 }
 
 auto serve() -> int {
-  adelie::Server server(Route::router());
+  adelie::Server server{Route::router()};
   server.workers(4).listen("127.0.0.1", 8080);
   std::printf("adelie listening on http://%s:%u\n", std::string(server.address()).c_str(), server.port());
   server.run();

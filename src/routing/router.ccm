@@ -1,20 +1,10 @@
-module;
-
-#include <cstddef>
-#include <initializer_list>
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
-
 export module adelie.routing.router;
 
+import std;
 import adelie.http;
 import adelie.routing.pattern;
-import adelie.support.callable;
 import adelie.routing.route;
+import adelie.support.callable;
 
 export namespace adelie::routing {
 
@@ -69,7 +59,7 @@ class RouteRegistrar {
   }
 
   auto where(std::string_view parameter, std::string_view pattern) -> RouteRegistrar& {
-    attributes_.constraints.push_back(Constraint{std::string(parameter), std::string(pattern)});
+    attributes_.constraints.push_back(Constraint{std::string{parameter}, std::string{pattern}});
     return *this;
   }
 
@@ -93,7 +83,7 @@ class Router {
   auto add(http::MethodSet methods, std::string_view uri, Handler handler) -> PendingRoute {
     auto pattern = UriPattern::parse(join_uri(merged_prefix(), uri));
 
-    RouteDefinition route(methods, std::move(pattern), std::move(handler));
+    RouteDefinition route{methods, std::move(pattern), std::move(handler)};
     route.set_name_prefix(merged_name_prefix());
 
     for (auto const& g : groups_) {
@@ -105,7 +95,7 @@ class Router {
     }
 
     routes_.push_back(std::move(route));
-    return PendingRoute(*this, routes_.size() - 1);
+    return PendingRoute{*this, routes_.size() - 1};
   }
 
   auto get(std::string_view uri, Handler handler) -> PendingRoute {
@@ -141,29 +131,29 @@ class Router {
   }
 
   auto match(std::initializer_list<http::Method> methods, std::string_view uri, Handler handler) -> PendingRoute {
-    return add(http::MethodSet(methods), uri, std::move(handler));
+    return add(http::MethodSet{methods}, uri, std::move(handler));
   }
 
   auto prefix(std::string_view value) -> RouteRegistrar {
-    RouteRegistrar registrar(*this);
+    RouteRegistrar registrar{*this};
     registrar.prefix(value);
     return registrar;
   }
 
   auto name(std::string_view value) -> RouteRegistrar {
-    RouteRegistrar registrar(*this);
+    RouteRegistrar registrar{*this};
     registrar.name(value);
     return registrar;
   }
 
   auto middleware(std::string_view value) -> RouteRegistrar {
-    RouteRegistrar registrar(*this);
+    RouteRegistrar registrar{*this};
     registrar.middleware(value);
     return registrar;
   }
 
   auto middleware(std::initializer_list<std::string_view> values) -> RouteRegistrar {
-    RouteRegistrar registrar(*this);
+    RouteRegistrar registrar{*this};
     registrar.middleware(values);
     return registrar;
   }
@@ -194,12 +184,12 @@ class Router {
 
   auto url(std::string_view name, std::span<Binding const> bindings) const -> std::string {
     auto const* route = named(name);
-    if (route == nullptr) throw std::invalid_argument("adelie: no route named \"" + std::string(name) + '"');
+    if (route == nullptr) throw std::invalid_argument("adelie: no route named \"" + std::string{name} + '"');
     return route->pattern().build(bindings);
   }
 
   auto url(std::string_view name, std::initializer_list<Binding> bindings) const -> std::string {
-    return url(name, std::span<Binding const>(bindings.begin(), bindings.size()));
+    return url(name, std::span<Binding const>{bindings.begin(), bindings.size()});
   }
 
   auto url(std::string_view name) const -> std::string { return url(name, std::span<Binding const>{}); }
@@ -214,7 +204,7 @@ class Router {
       alias.second = std::move(handler);
       return;
     }
-    aliases_.emplace_back(std::string(name), std::move(handler));
+    aliases_.emplace_back(std::string{name}, std::move(handler));
   }
 
   auto middleware_for(std::string_view name) const noexcept -> Middleware const* {
@@ -239,7 +229,7 @@ class Router {
 
   auto assign_name(std::size_t index, std::string_view value) -> void {
     auto& route = at(index);
-    auto candidate = std::string(route.name_prefix());
+    auto candidate = std::string{route.name_prefix()};
     candidate += value;
 
     for (std::size_t i = 0; i < routes_.size(); ++i) {
@@ -294,8 +284,8 @@ auto PendingRoute::middleware(std::initializer_list<std::string_view> values) ->
 auto PendingRoute::where(std::string_view parameter, std::string_view pattern) -> PendingRoute& {
   auto& route = owner_->at(index_);
   if (!route.pattern().has_parameter(parameter))
-    throw std::invalid_argument("adelie: route \"" + std::string(route.uri()) + "\" has no parameter \"" +
-                                std::string(parameter) + '"');
+    throw std::invalid_argument("adelie: route \"" + std::string{route.uri()} + "\" has no parameter \"" +
+                                std::string{parameter} + '"');
   route.set_constraint(parameter, pattern);
   return *this;
 }

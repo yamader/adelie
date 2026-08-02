@@ -1,27 +1,23 @@
 export module adelie;
 
-export import adelie.support.callable;
-export import adelie.support.utils;
+export import adelie.auth;
+export import adelie.db;
+export import adelie.facades.config;
+export import adelie.facades.route;
 export import adelie.http;
 export import adelie.routing.pattern;
 export import adelie.routing.route;
 export import adelie.routing.router;
-export import adelie.auth;
-export import adelie.facades.di;
-export import adelie.facades.route;
-export import adelie.facades.config;
-export import adelie.db;
-export import adelie.facades.db;
 export import adelie.server;
+export import adelie.support.callable;
+export import adelie.support.di;
+export import adelie.support.utils;
 
 export namespace adelie {
 
-namespace di = facades::di;
+namespace di = support::di;
 
-using facades::Config;
-using facades::DB;
-using facades::Route;
-
+using db::DatabaseConfig;
 using db::Model;
 using db::ResultSet;
 using db::Row;
@@ -58,3 +54,6 @@ using routing::UriPattern;
 using server::Server;
 
 }
+
+export namespace Config = adelie::facades::Config;
+export namespace Route = adelie::facades::Route;

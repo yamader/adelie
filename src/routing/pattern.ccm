@@ -2,17 +2,10 @@ module;
 
 #include <boost/url/encode.hpp>
 #include <boost/url/rfc/pchars.hpp>
-#include <cstddef>
-#include <initializer_list>
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 export module adelie.routing.pattern;
 
+import std;
 import adelie.support.utils;
 
 namespace adelie::routing::detail {
@@ -35,7 +28,7 @@ auto append_escaped(std::string& out, std::string_view literal) -> void {
 }
 
 [[noreturn]] auto fail(std::string_view uri, std::string_view why) -> void {
-  throw std::invalid_argument("adelie: invalid route URI \"" + std::string(uri) + "\": " + std::string(why));
+  throw std::invalid_argument("adelie: invalid route URI \"" + std::string{uri} + "\": " + std::string{why});
 }
 
 auto encode_segment(std::string_view value, bool wildcard) -> std::string;
@@ -135,8 +128,8 @@ class UriPattern {
       seen_optional = seen_optional || optional;
       seen_wildcard = wildcard;
 
-      p.tokens_.push_back(Token{std::string(spec), true, optional, wildcard});
-      p.parameters_.push_back(Parameter{std::string(spec), optional, wildcard});
+      p.tokens_.push_back(Token{std::string{spec}, true, optional, wildcard});
+      p.parameters_.push_back(Parameter{std::string{spec}, optional, wildcard});
     }
     flush_literal();
 
@@ -207,7 +200,7 @@ class UriPattern {
   }
 
   auto build(std::initializer_list<Binding> bindings) const -> std::string {
-    return build(std::span<Binding const>(bindings.begin(), bindings.size()));
+    return build(std::span<Binding const>{bindings.begin(), bindings.size()});
   }
 
   auto build() const -> std::string { return build(std::span<Binding const>{}); }

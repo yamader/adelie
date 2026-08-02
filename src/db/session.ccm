@@ -1,12 +1,6 @@
-module;
-
-#include <cstdint>
-#include <string>
-#include <string_view>
-#include <vector>
-
 export module adelie.db:session;
 
+import std;
 import :types;
 
 export namespace adelie::db {
@@ -48,5 +42,59 @@ class Transaction {
   bool committed_ = false;
   std::string savepoint_;
 };
+
+}
+
+namespace adelie::db {
+
+namespace {
+
+auto next_savepoint() -> std::string {
+  static std::atomic<std::uint64_t> counter{0};
+  return "adelie_" + std::to_string(counter.fetch_add(1, std::memory_order_relaxed));
+}
+
+}
+
+Transaction::Transaction(Session& session) : session_(&session) {
+  if (session_->in_transaction()) {
+    savepoint_ = next_savepoint();
+    session_->execute("SAVEPOINT " + savepoint_);
+  } else {
+    session_->begin();
+  }
+}
+
+Transaction::~Transaction() {
+  if (session_ != nullptr && !committed_) {
+    try {
+      rollback();
+    } catch (...) {
+    }
+  }
+}
+
+auto Transaction::active() const noexcept -> bool { return session_ != nullptr && !committed_; }
+
+auto Transaction::commit() -> void {
+  if (session_ == nullptr || committed_) return;
+  if (savepoint_.empty()) {
+    session_->commit();
+  } else {
+    session_->execute("RELEASE SAVEPOINT " + savepoint_);
+  }
+  committed_ = true;
+}
+
+auto Transaction::rollback() -> void {
+  if (session_ == nullptr || committed_) return;
+  if (savepoint_.empty()) {
+    session_->rollback();
+  } else {
+    session_->execute("ROLLBACK TO SAVEPOINT " + savepoint_);
+    session_->execute("RELEASE SAVEPOINT " + savepoint_);
+  }
+  committed_ = true;
+}
 
 }

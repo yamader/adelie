@@ -1,8 +1,51 @@
 export module adelie.db;
 
-export import :types;
-export import :session;
+import std;
 export import :connector;
-export import :sqlite;
 export import :manager;
 export import :model;
+export import :session;
+export import :sqlite;
+export import :types;
+
+export import adelie.support.callable;
+
+export namespace adelie::db {
+
+auto manager() noexcept -> DatabaseManager& { return default_manager(); }
+
+auto connect(DatabaseConfig config) -> void { manager().connect(std::move(config)); }
+
+auto connect(std::string_view name, DatabaseConfig config) -> void { manager().connect(name, std::move(config)); }
+
+auto session(std::string_view name = "default") -> Session& { return manager().session(name); }
+
+auto execute(std::string_view sql) -> ResultSet { return session().execute(sql); }
+
+auto execute(std::string_view sql, std::vector<Value> const& params) -> ResultSet {
+  return session().execute(sql, params);
+}
+
+auto last_insert_id() -> std::int64_t { return session().last_insert_id(); }
+
+auto affected_rows() -> std::int64_t { return session().affected_rows(); }
+
+auto in_transaction() -> bool { return session().in_transaction(); }
+
+auto begin() -> void { session().begin(); }
+
+auto commit() -> void { session().commit(); }
+
+auto rollback() -> void { session().rollback(); }
+
+auto transaction(Session& target, support::Callable<void()> body) -> void {
+  Transaction transaction{target};
+  body();
+  transaction.commit();
+}
+
+auto transaction(support::Callable<void()> body) -> void { transaction(session(), std::move(body)); }
+
+auto disconnect_all() -> void { manager().disconnect_all(); }
+
+}

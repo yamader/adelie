@@ -1,13 +1,6 @@
-module;
-
-#include <cstddef>
-#include <random>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
-
 export module adelie.http:session;
+
+import std;
 
 export namespace adelie::http {
 
@@ -43,7 +36,7 @@ class Session {
       v = std::move(value);
       return *this;
     }
-    attributes_.emplace_back(std::string(key), std::move(value));
+    attributes_.emplace_back(std::string{key}, std::move(value));
     return *this;
   }
 

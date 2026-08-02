@@ -1,173 +1,159 @@
-module;
-
-#include <initializer_list>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-#include <vector>
-
 export module adelie.facades.route;
 
-import adelie.facades.di;
+import std;
+import adelie.support.di;
 import adelie.http;
 import adelie.routing.pattern;
-import adelie.support.callable;
 import adelie.routing.route;
 import adelie.routing.router;
+import adelie.support.callable;
 
-export namespace adelie::facades {
+export namespace adelie::facades::Route {
 
-class Route {
- public:
-  Route() = delete;
+auto router() noexcept -> routing::Router& {
+  static routing::Router instance;
+  return instance;
+}
 
-  static auto router() noexcept -> routing::Router& {
-    static routing::Router instance;
-    return instance;
-  }
+auto add(http::MethodSet methods, std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().add(methods, uri, std::move(handler));
+}
 
-  static auto add(http::MethodSet methods, std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().add(methods, uri, std::move(handler));
-  }
+auto get(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().get(uri, std::move(handler));
+}
 
-  static auto get(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().get(uri, std::move(handler));
-  }
+auto head(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().head(uri, std::move(handler));
+}
 
-  static auto head(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().head(uri, std::move(handler));
-  }
+auto post(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().post(uri, std::move(handler));
+}
 
-  static auto post(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().post(uri, std::move(handler));
-  }
+auto put(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().put(uri, std::move(handler));
+}
 
-  static auto put(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().put(uri, std::move(handler));
-  }
+auto patch(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().patch(uri, std::move(handler));
+}
 
-  static auto patch(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().patch(uri, std::move(handler));
-  }
+auto delete_(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().delete_(uri, std::move(handler));
+}
 
-  static auto delete_(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().delete_(uri, std::move(handler));
-  }
+auto options(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().options(uri, std::move(handler));
+}
 
-  static auto options(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().options(uri, std::move(handler));
-  }
+auto any(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
+  return router().any(uri, std::move(handler));
+}
 
-  static auto any(std::string_view uri, routing::Handler handler) -> routing::PendingRoute {
-    return router().any(uri, std::move(handler));
-  }
+auto match(std::initializer_list<http::Method> methods, std::string_view uri, routing::Handler handler)
+    -> routing::PendingRoute {
+  return router().match(methods, uri, std::move(handler));
+}
 
-  static auto match(std::initializer_list<http::Method> methods, std::string_view uri, routing::Handler handler)
-      -> routing::PendingRoute {
-    return router().match(methods, uri, std::move(handler));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto get(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().get(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto get(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().get(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto head(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().head(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto head(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().head(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto post(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().post(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto post(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().post(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto put(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().put(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto put(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().put(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto patch(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().patch(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto patch(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().patch(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto delete_(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().delete_(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto delete_(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().delete_(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto options(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().options(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto options(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().options(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto any(std::string_view uri, M method) -> routing::PendingRoute {
+  return router().any(uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto any(std::string_view uri, M method) -> routing::PendingRoute {
-    return router().any(uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto add(http::MethodSet methods, std::string_view uri, M method) -> routing::PendingRoute {
+  return router().add(methods, uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto add(http::MethodSet methods, std::string_view uri, M method) -> routing::PendingRoute {
-    return router().add(methods, uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto match(std::initializer_list<http::Method> methods, std::string_view uri, M method) -> routing::PendingRoute {
+  return router().match(methods, uri, support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto match(std::initializer_list<http::Method> methods, std::string_view uri, M method)
-      -> routing::PendingRoute {
-    return router().match(methods, uri, di::handler(method));
-  }
+template <class M>
+  requires std::is_member_function_pointer_v<M>
+auto fallback(M method) -> void {
+  router().fallback(support::di::handler(method));
+}
 
-  template <class M>
-    requires std::is_member_function_pointer_v<M>
-  static auto fallback(M method) -> void {
-    router().fallback(di::handler(method));
-  }
+auto prefix(std::string_view value) -> routing::RouteRegistrar { return router().prefix(value); }
 
-  static auto prefix(std::string_view value) -> routing::RouteRegistrar { return router().prefix(value); }
+auto name(std::string_view value) -> routing::RouteRegistrar { return router().name(value); }
 
-  static auto name(std::string_view value) -> routing::RouteRegistrar { return router().name(value); }
+auto middleware(std::string_view value) -> routing::RouteRegistrar { return router().middleware(value); }
 
-  static auto middleware(std::string_view value) -> routing::RouteRegistrar { return router().middleware(value); }
+auto middleware(std::initializer_list<std::string_view> values) -> routing::RouteRegistrar {
+  return router().middleware(values);
+}
 
-  static auto middleware(std::initializer_list<std::string_view> values) -> routing::RouteRegistrar {
-    return router().middleware(values);
-  }
+auto group(routing::GroupAttributes attributes, support::Callable<void()> body) -> void {
+  router().group(std::move(attributes), std::move(body));
+}
 
-  static auto group(routing::GroupAttributes attributes, support::Callable<void()> body) -> void {
-    router().group(std::move(attributes), std::move(body));
-  }
+auto routes() -> std::vector<routing::RouteDefinition> const& { return router().routes(); }
 
-  static auto routes() -> std::vector<routing::RouteDefinition> const& { return router().routes(); }
+auto named(std::string_view name) -> routing::RouteDefinition const* { return router().named(name); }
 
-  static auto named(std::string_view name) -> routing::RouteDefinition const* { return router().named(name); }
+auto has(std::string_view name) -> bool { return router().has(name); }
 
-  static auto has(std::string_view name) -> bool { return router().has(name); }
+auto url(std::string_view name, std::initializer_list<routing::Binding> bindings) -> std::string {
+  return router().url(name, bindings);
+}
 
-  static auto url(std::string_view name, std::initializer_list<routing::Binding> bindings) -> std::string {
-    return router().url(name, bindings);
-  }
+auto url(std::string_view name) -> std::string { return router().url(name); }
 
-  static auto url(std::string_view name) -> std::string { return router().url(name); }
+auto fallback(routing::Handler handler) -> void { router().fallback(std::move(handler)); }
 
-  static auto fallback(routing::Handler handler) -> void { router().fallback(std::move(handler)); }
+auto alias_middleware(std::string_view name, routing::Middleware handler) -> void {
+  router().alias_middleware(name, std::move(handler));
+}
 
-  static auto alias_middleware(std::string_view name, routing::Middleware handler) -> void {
-    router().alias_middleware(name, std::move(handler));
-  }
-
-  static auto clear() -> void { router().clear(); }
-};
+auto clear() -> void { router().clear(); }
 
 }

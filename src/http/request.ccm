@@ -1,15 +1,8 @@
-module;
-
-#include <memory>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
-
 export module adelie.http:request;
 
-import :types;
+import std;
 import :session;
+import :types;
 
 export namespace adelie::http {
 
