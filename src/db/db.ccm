@@ -5,3 +5,4 @@ export import :session;
 export import :connector;
 export import :sqlite;
 export import :manager;
+export import :model;

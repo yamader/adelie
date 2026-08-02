@@ -43,4 +43,6 @@ class DatabaseManager {
   mutable std::mutex mutex_;
 };
 
+auto default_manager() -> DatabaseManager&;
+
 }

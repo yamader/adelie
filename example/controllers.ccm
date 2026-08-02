@@ -6,15 +6,14 @@ module;
 export module example.controllers;
 
 import adelie;
+import example.models;
 
 export namespace example {
 
-using adelie::DB;
 using adelie::Next;
 using adelie::Request;
 using adelie::Response;
 using adelie::Status;
-using adelie::Value;
 
 class Logger {
  public:
@@ -44,15 +43,14 @@ class UserRepository : public UserSource {
 
   auto find(std::string_view id) const -> std::string override {
     log_->note("repository.find");
-    auto const rows = DB::execute("SELECT name FROM users WHERE id = ?", {Value{id}});
-    if (rows.empty()) return "unknown";
-    return std::string(rows[0][0].as_string());
+    auto user = User::find(std::stoll(std::string(id)));
+    if (!user) return "unknown";
+    return std::string(user->get("name").as_string());
   }
 
   auto count() const -> int override {
     log_->note("repository.count");
-    auto const rows = DB::execute("SELECT COUNT(*) FROM users");
-    return rows.empty() ? 0 : static_cast<int>(rows[0][0].as_int());
+    return static_cast<int>(User::count());
   }
 
  private:
@@ -80,8 +78,8 @@ class UserController {
   auto store(Request const& req) -> Response {
     std::string name{req.body()};
     if (name.empty()) name = "anonymous";
-    DB::transaction([&] { DB::execute("INSERT INTO users (name) VALUES (?)", {Value{name}}); });
-    return Response::json({{"id", std::to_string(DB::last_insert_id())}, {"name", name}}, Status::created);
+    auto user = User::create({{"name", name}});
+    return Response::json({{"id", std::to_string(user.key())}, {"name", name}}, Status::created);
   }
 
   auto destroy(Request const&) -> Response { return Response::no_content(); }

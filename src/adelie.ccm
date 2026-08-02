@@ -19,6 +19,7 @@ using facades::DB;
 using facades::Route;
 
 using db::Config;
+using db::Model;
 using db::ResultSet;
 using db::Row;
 using db::Session;

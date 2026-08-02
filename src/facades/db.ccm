@@ -16,10 +16,7 @@ class DB {
  public:
   DB() = delete;
 
-  static auto manager() noexcept -> db::DatabaseManager& {
-    static db::DatabaseManager instance;
-    return instance;
-  }
+  static auto manager() noexcept -> db::DatabaseManager& { return db::default_manager(); }
 
   static auto connect(db::Config config) -> void { manager().connect(std::move(config)); }
 

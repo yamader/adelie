@@ -19,6 +19,11 @@ namespace adelie::db {
 
 DatabaseManager::DatabaseManager() { register_connector(std::make_shared<SqliteConnector>()); }
 
+auto default_manager() -> DatabaseManager& {
+  static DatabaseManager instance;
+  return instance;
+}
+
 auto DatabaseManager::register_connector(std::shared_ptr<Connector> connector) -> DatabaseManager& {
   if (connector == nullptr) throw std::invalid_argument("adelie.db: null connector");
   std::lock_guard lock(mutex_);

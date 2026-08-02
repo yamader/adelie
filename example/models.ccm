@@ -1,0 +1,19 @@
+module;
+
+#include <string_view>
+#include <vector>
+
+export module example.models;
+
+import adelie;
+
+export namespace example {
+
+class User : public adelie::Model<User> {
+ public:
+  static constexpr std::string_view table = "users";
+
+  auto fillable() const -> std::vector<std::string_view> override { return {"name"}; }
+};
+
+}
