@@ -19,7 +19,7 @@ struct Constraint {
 class RouteDefinition {
  public:
   RouteDefinition(http::MethodSet methods, UriPattern pattern, Handler handler)
-      : methods_(methods), pattern_(std::move(pattern)), handler_(std::move(handler)) {}
+      : methods_{methods}, pattern_{std::move(pattern)}, handler_{std::move(handler)} {}
 
   auto methods() const noexcept -> http::MethodSet { return methods_; }
   auto accepts(http::Method m) const noexcept -> bool { return methods_.contains(m); }

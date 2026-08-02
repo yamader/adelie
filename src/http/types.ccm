@@ -25,7 +25,7 @@ class MethodSet {
  public:
   constexpr MethodSet() noexcept = default;
 
-  constexpr MethodSet(Method m) noexcept : bits_(bit(m)) {}
+  constexpr MethodSet(Method m) noexcept : bits_{bit(m)} {}
 
   constexpr MethodSet(std::initializer_list<Method> ms) noexcept {
     for (auto const m : ms) bits_ |= bit(m);

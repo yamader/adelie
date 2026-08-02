@@ -28,7 +28,7 @@ auto append_escaped(std::string& out, std::string_view literal) -> void {
 }
 
 [[noreturn]] auto fail(std::string_view uri, std::string_view why) -> void {
-  throw std::invalid_argument("adelie: invalid route URI \"" + std::string{uri} + "\": " + std::string{why});
+  throw std::invalid_argument{"adelie: invalid route URI \"" + std::string{uri} + "\": " + std::string{why}};
 }
 
 auto encode_segment(std::string_view value, bool wildcard) -> std::string;
@@ -187,8 +187,8 @@ class UriPattern {
       auto const* value = find(t.text);
       if (value == nullptr) {
         if (!t.optional)
-          throw std::invalid_argument("adelie: no binding for route parameter \"" + t.text + "\" in \"" + source_ +
-                                      '"');
+          throw std::invalid_argument{"adelie: no binding for route parameter \"" + t.text + "\" in \"" + source_ +
+                                      '"'};
         if (!out.empty() && out.back() == '/') out.pop_back();
         break;
       }

@@ -18,16 +18,16 @@ struct Response::Impl {
   std::string body;
 };
 
-Response::Response() : impl_(std::make_unique<Impl>()) {}
+Response::Response() : impl_{std::make_unique<Impl>()} {}
 
-Response::Response(Status status) : impl_(std::make_unique<Impl>()) { impl_->message.set_start_line(status); }
+Response::Response(Status status) : impl_{std::make_unique<Impl>()} { impl_->message.set_start_line(status); }
 
-Response::Response(Status status, std::string body) : impl_(std::make_unique<Impl>()) {
+Response::Response(Status status, std::string body) : impl_{std::make_unique<Impl>()} {
   impl_->message.set_start_line(status);
   impl_->body = std::move(body);
 }
 
-Response::Response(Response const& other) : impl_(std::make_unique<Impl>(*other.impl_)) {}
+Response::Response(Response const& other) : impl_{std::make_unique<Impl>(*other.impl_)} {}
 
 Response::Response(Response&& other) noexcept = default;
 

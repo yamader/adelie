@@ -26,8 +26,8 @@ namespace {
 auto check(sqlite3* db, int rc) -> void {
   if (rc == SQLITE_OK || rc == SQLITE_DONE || rc == SQLITE_ROW) return;
   char const* message = db != nullptr ? sqlite3_errmsg(db) : nullptr;
-  throw std::runtime_error("adelie.db: sqlite error " + std::to_string(rc) + ": " +
-                           (message != nullptr ? message : "unknown"));
+  throw std::runtime_error{"adelie.db: sqlite error " + std::to_string(rc) + ": " +
+                           (message != nullptr ? message : "unknown")};
 }
 
 struct StatementGuard {
@@ -39,7 +39,7 @@ struct StatementGuard {
 
 auto bind_all(sqlite3* db, sqlite3_stmt* stmt, std::vector<Value> const& params) -> void {
   if (params.size() > static_cast<std::size_t>(sqlite3_bind_parameter_count(stmt)))
-    throw std::invalid_argument("adelie.db: too many bind parameters");
+    throw std::invalid_argument{"adelie.db: too many bind parameters"};
   int index = 1;
   for (auto const& param : params) {
     switch (param.type()) {
@@ -130,7 +130,7 @@ auto open_sqlite(std::string const& target) -> sqlite3* {
     char const* message = db != nullptr ? sqlite3_errmsg(db) : nullptr;
     std::string const detail = message != nullptr ? message : "unknown";
     if (db != nullptr) sqlite3_close(db);
-    throw std::runtime_error("adelie.db: cannot open sqlite database \"" + target + "\": " + detail);
+    throw std::runtime_error{"adelie.db: cannot open sqlite database \"" + target + "\": " + detail};
   }
   return db;
 }
@@ -139,61 +139,61 @@ auto open_sqlite(std::string const& target) -> sqlite3* {
 
 class SqliteSession final : public Session {
  public:
-  SqliteSession(std::string name, sqlite3* db) : name_(std::move(name)), db_(db) {}
+  SqliteSession(std::string name, sqlite3* db) : name_{std::move(name)}, db_{db} {}
   ~SqliteSession() override { close(); }
 
   auto name() const noexcept -> std::string_view override { return name_; }
 
   auto connected() const noexcept -> bool override {
-    std::lock_guard lock(mutex_);
+    std::lock_guard lock{mutex_};
     return db_ != nullptr;
   }
 
   auto execute(std::string_view sql) -> ResultSet override { return execute(sql, {}); }
 
   auto execute(std::string_view sql, std::vector<Value> const& params) -> ResultSet override {
-    std::lock_guard lock(mutex_);
+    std::lock_guard lock{mutex_};
     return run(sql, params);
   }
 
   auto last_insert_id() noexcept -> std::int64_t override {
-    std::lock_guard lock(mutex_);
+    std::lock_guard lock{mutex_};
     return db_ != nullptr ? sqlite3_last_insert_rowid(db_) : 0;
   }
 
   auto affected_rows() noexcept -> std::int64_t override {
-    std::lock_guard lock(mutex_);
+    std::lock_guard lock{mutex_};
     return db_ != nullptr ? sqlite3_changes(db_) : 0;
   }
 
   auto in_transaction() const noexcept -> bool override {
-    std::lock_guard lock(mutex_);
+    std::lock_guard lock{mutex_};
     return in_transaction_;
   }
 
   auto begin() -> void override {
-    std::lock_guard lock(mutex_);
-    if (in_transaction_) throw std::logic_error("adelie.db: already in a transaction");
+    std::lock_guard lock{mutex_};
+    if (in_transaction_) throw std::logic_error{"adelie.db: already in a transaction"};
     run("BEGIN", {});
     in_transaction_ = true;
   }
 
   auto commit() -> void override {
-    std::lock_guard lock(mutex_);
-    if (!in_transaction_) throw std::logic_error("adelie.db: not in a transaction");
+    std::lock_guard lock{mutex_};
+    if (!in_transaction_) throw std::logic_error{"adelie.db: not in a transaction"};
     run("COMMIT", {});
     in_transaction_ = false;
   }
 
   auto rollback() -> void override {
-    std::lock_guard lock(mutex_);
-    if (!in_transaction_) throw std::logic_error("adelie.db: not in a transaction");
+    std::lock_guard lock{mutex_};
+    if (!in_transaction_) throw std::logic_error{"adelie.db: not in a transaction"};
     run("ROLLBACK", {});
     in_transaction_ = false;
   }
 
   auto close() -> void override {
-    std::lock_guard lock(mutex_);
+    std::lock_guard lock{mutex_};
     if (db_ != nullptr) {
       sqlite3_close(db_);
       db_ = nullptr;
@@ -202,7 +202,7 @@ class SqliteSession final : public Session {
 
  private:
   auto run(std::string_view sql, std::vector<Value> const& params) -> ResultSet {
-    if (db_ == nullptr) throw std::runtime_error("adelie.db: session is closed");
+    if (db_ == nullptr) throw std::runtime_error{"adelie.db: session is closed"};
     sqlite3_stmt* raw = nullptr;
     check(db_, sqlite3_prepare_v2(db_, sql.data(), static_cast<int>(sql.size()), &raw, nullptr));
     StatementGuard guard{raw};

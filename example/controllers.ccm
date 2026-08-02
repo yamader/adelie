@@ -35,13 +35,13 @@ class UserSource {
 
 class UserRepository : public UserSource {
  public:
-  explicit UserRepository(Logger& log) : log_(&log) {}
+  explicit UserRepository(Logger& log) : log_{&log} {}
 
   auto find(std::string_view id) const -> std::string override {
     log_->note("repository.find");
-    auto user = User::find(std::stoll(std::string(id)));
+    auto user = User::find(std::stoll(std::string{id}));
     if (!user) return "unknown";
-    return std::string(user->get("name").as_string());
+    return std::string{user->get("name").as_string()};
   }
 
   auto count() const -> int override {
@@ -60,7 +60,7 @@ class HomeController {
 
 class UserController {
  public:
-  UserController(UserSource& users, Logger& log) : users_(&users), log_(&log) {}
+  UserController(UserSource& users, Logger& log) : users_{&users}, log_{&log} {}
 
   auto index(Request const&) -> Response {
     return Response::json({{"count", std::to_string(users_->count())}, {"log", std::to_string(log_->count())}});

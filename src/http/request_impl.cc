@@ -54,14 +54,14 @@ struct Request::Impl {
   }
 };
 
-Request::Request() : impl_(std::make_unique<Impl>()) {}
+Request::Request() : impl_{std::make_unique<Impl>()} {}
 
-Request::Request(Method method, std::string_view target) : impl_(std::make_unique<Impl>()) {
+Request::Request(Method method, std::string_view target) : impl_{std::make_unique<Impl>()} {
   impl_->message = boost::http::request{method, boost_view(target)};
   impl_->reparse_target();
 }
 
-Request::Request(Request const& other) : impl_(std::make_unique<Impl>(*other.impl_)) {}
+Request::Request(Request const& other) : impl_{std::make_unique<Impl>(*other.impl_)} {}
 
 Request::Request(Request&& other) noexcept = default;
 

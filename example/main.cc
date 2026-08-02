@@ -35,8 +35,8 @@ auto print_table() -> void {
       middleware += m;
     }
     std::printf("%-16s %-24s %-24s %-22s %s\n", adelie::http::to_string(route.methods()).c_str(),
-                std::string(route.uri()).c_str(), route.pattern().to_boost_pattern().c_str(),
-                std::string(route.name()).c_str(), middleware.c_str());
+                std::string{route.uri()}.c_str(), route.pattern().to_boost_pattern().c_str(),
+                std::string{route.name()}.c_str(), middleware.c_str());
   }
 }
 
@@ -46,7 +46,7 @@ auto print_urls() -> void {
   std::printf("admin.users.destroy  -> %s\n", Route::url("admin.users.destroy", {{"id", "7"}}).c_str());
 
   auto const* show = Route::named("users.show");
-  std::printf("\nusers.show where(id) = %s\n", std::string(show->constraint("id")).c_str());
+  std::printf("\nusers.show where(id) = %s\n", std::string{show->constraint("id")}.c_str());
 }
 
 auto print_db() -> void {
@@ -54,7 +54,7 @@ auto print_db() -> void {
   std::printf("\nusers in database: %zu\n", users.size());
   for (auto const& user : users) {
     std::printf("  - id=%lld name=%s\n", static_cast<long long>(user.key()),
-                std::string(user.get("name").as_string()).c_str());
+                std::string{user.get("name").as_string()}.c_str());
   }
 }
 
@@ -68,7 +68,7 @@ auto print_config() -> void {
 auto serve() -> int {
   adelie::Server server{Route::router()};
   server.workers(4).listen("127.0.0.1", 8080);
-  std::printf("adelie listening on http://%s:%u\n", std::string(server.address()).c_str(), server.port());
+  std::printf("adelie listening on http://%s:%u\n", std::string{server.address()}.c_str(), server.port());
   server.run();
   return 0;
 }
@@ -84,7 +84,7 @@ auto main(int argc, char** argv) -> int {
   example::define_routes();
   seed_database();
 
-  if (argc > 1 && std::string_view(argv[1]) == "serve") return serve();
+  if (argc > 1 && std::string_view{argv[1]} == "serve") return serve();
 
   print_table();
   print_urls();

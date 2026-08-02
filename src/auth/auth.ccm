@@ -125,24 +125,24 @@ auto attach_user(http::Session& session, User const& user) -> void {
 }
 
 auto MemorySessionStore::load(std::string_view id) -> std::optional<http::Session> {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock{mutex_};
   auto const it = entries_.find(id);
   if (it == entries_.end()) return std::nullopt;
   return it->second;
 }
 
 auto MemorySessionStore::save(http::Session const& session) -> void {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock{mutex_};
   entries_[std::string{session.id()}] = session;
 }
 
 auto MemorySessionStore::destroy(std::string_view id) -> void {
-  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock{mutex_};
   entries_.erase(std::string{id});
 }
 
 Authenticator::Authenticator(SessionStore& store, std::string_view cookie_name)
-    : store_(&store), cookie_name_(cookie_name) {}
+    : store_{&store}, cookie_name_{cookie_name} {}
 
 auto Authenticator::verify_bearer(TokenVerifier verifier) -> Authenticator& {
   bearer_verifier_ = std::move(verifier);

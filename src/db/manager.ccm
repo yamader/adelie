@@ -48,19 +48,19 @@ auto default_manager() -> DatabaseManager& {
 }
 
 auto DatabaseManager::register_connector(std::shared_ptr<Connector> connector) -> DatabaseManager& {
-  if (connector == nullptr) throw std::invalid_argument("adelie.db: null connector");
-  std::lock_guard lock(mutex_);
+  if (connector == nullptr) throw std::invalid_argument{"adelie.db: null connector"};
+  std::lock_guard lock{mutex_};
   drivers_[std::string{connector->driver()}] = std::move(connector);
   return *this;
 }
 
 auto DatabaseManager::has_connector(std::string_view driver) const noexcept -> bool {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   return drivers_.find(driver) != drivers_.end();
 }
 
 auto DatabaseManager::connect(DatabaseConfig config) -> DatabaseManager& {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   connections_[config.name] = std::move(config);
   return *this;
 }
@@ -71,20 +71,20 @@ auto DatabaseManager::connect(std::string_view name, DatabaseConfig config) -> D
 }
 
 auto DatabaseManager::has_connection(std::string_view name) const noexcept -> bool {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   return connections_.find(name) != connections_.end();
 }
 
 auto DatabaseManager::session(std::string_view name) -> Session& {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   auto const config_it = connections_.find(name);
   if (config_it == connections_.end())
-    throw std::runtime_error("adelie.db: no connection named \"" + std::string{name} + '"');
+    throw std::runtime_error{"adelie.db: no connection named \"" + std::string{name} + '"'};
   auto const session_it = sessions_.find(name);
   if (session_it != sessions_.end()) return *session_it->second;
   auto const driver_it = drivers_.find(config_it->second.driver);
   if (driver_it == drivers_.end())
-    throw std::runtime_error("adelie.db: no connector for driver \"" + config_it->second.driver + '"');
+    throw std::runtime_error{"adelie.db: no connector for driver \"" + config_it->second.driver + '"'};
   auto session = driver_it->second->open(config_it->second);
   auto& stored = sessions_[std::string{name}];
   stored = std::move(session);
@@ -92,7 +92,7 @@ auto DatabaseManager::session(std::string_view name) -> Session& {
 }
 
 auto DatabaseManager::disconnect(std::string_view name) -> void {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   auto const it = sessions_.find(name);
   if (it != sessions_.end()) {
     it->second->close();
@@ -101,13 +101,13 @@ auto DatabaseManager::disconnect(std::string_view name) -> void {
 }
 
 auto DatabaseManager::disconnect_all() -> void {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   for (auto& [name, session] : sessions_) session->close();
   sessions_.clear();
 }
 
 auto DatabaseManager::connections() const -> std::vector<std::string> {
-  std::lock_guard lock(mutex_);
+  std::lock_guard lock{mutex_};
   std::vector<std::string> out;
   out.reserve(connections_.size());
   for (auto const& [name, config] : connections_) out.push_back(name);

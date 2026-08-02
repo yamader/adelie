@@ -14,7 +14,7 @@ class Callable<R(Args...)> {
 
   template <class F>
     requires(!std::is_same_v<std::decay_t<F>, Callable> && std::is_invocable_r_v<R, std::decay_t<F>&, Args...>)
-  Callable(F&& fn) : holder_(std::make_unique<Model<std::decay_t<F>>>(std::forward<F>(fn))) {}
+  Callable(F&& fn) : holder_{std::make_unique<Model<std::decay_t<F>>>(std::forward<F>(fn))} {}
 
   auto operator()(Args... args) const -> R { return holder_->invoke(std::forward<Args>(args)...); }
 
@@ -28,7 +28,7 @@ class Callable<R(Args...)> {
 
   template <class F>
   struct Model final : Concept {
-    explicit Model(F fn) : fn_(std::move(fn)) {}
+    explicit Model(F fn) : fn_{std::move(fn)} {}
 
     auto invoke(Args... args) -> R override { return fn_(std::forward<Args>(args)...); }
 

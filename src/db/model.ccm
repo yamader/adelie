@@ -18,10 +18,10 @@ auto quoted(std::string_view name) -> std::string { return '"' + std::string{nam
 
 auto validate_column(std::string_view column) -> std::string {
   if (column.empty() || !(is_alpha(column[0]) || column[0] == '_'))
-    throw std::invalid_argument("adelie.db: invalid column name \"" + std::string{column} + '"');
+    throw std::invalid_argument{"adelie.db: invalid column name \"" + std::string{column} + '"'};
   for (char const c : column)
     if (!is_alpha(c) && !is_digit(c) && c != '_')
-      throw std::invalid_argument("adelie.db: invalid column name \"" + std::string{column} + '"');
+      throw std::invalid_argument{"adelie.db: invalid column name \"" + std::string{column} + '"'};
   return std::string{column};
 }
 
@@ -29,7 +29,7 @@ auto validate_op(std::string_view op) -> std::string_view {
   static constexpr std::string_view allowed[] = {"=", "!=", "<", "<=", ">", ">=", "LIKE"};
   for (auto const& candidate : allowed)
     if (op == candidate) return op;
-  throw std::invalid_argument("adelie.db: invalid operator \"" + std::string{op} + '"');
+  throw std::invalid_argument{"adelie.db: invalid operator \"" + std::string{op} + '"'};
 }
 
 auto snake_plural(std::string_view name) -> std::string {

@@ -27,7 +27,7 @@ class Value {
 
   template <class T>
     requires std::is_integral_v<T>
-  Value(T value) : data_(static_cast<std::int64_t>(value)) {}
+  Value(T value) : data_{static_cast<std::int64_t>(value)} {}
 
   auto type() const noexcept -> ValueType;
   auto is_null() const noexcept -> bool;
@@ -85,17 +85,17 @@ class ResultSet {
 
 namespace adelie::db {
 
-Value::Value(std::nullptr_t) : data_(std::monostate{}) {}
+Value::Value(std::nullptr_t) : data_{std::monostate{}} {}
 
-Value::Value(double value) : data_(value) {}
+Value::Value(double value) : data_{value} {}
 
-Value::Value(std::string value) : data_(std::move(value)) {}
+Value::Value(std::string value) : data_{std::move(value)} {}
 
-Value::Value(std::string_view value) : data_(std::string{value}) {}
+Value::Value(std::string_view value) : data_{std::string{value}} {}
 
-Value::Value(char const* value) : data_(std::string{value}) {}
+Value::Value(char const* value) : data_{std::string{value}} {}
 
-Value::Value(Blob value) : data_(std::move(value)) {}
+Value::Value(Blob value) : data_{std::move(value)} {}
 
 auto Value::type() const noexcept -> ValueType {
   switch (data_.index()) {
@@ -116,12 +116,12 @@ auto Value::is_null() const noexcept -> bool { return data_.index() == 0; }
 
 auto Value::as_int() const -> std::int64_t {
   if (auto const* value = std::get_if<std::int64_t>(&data_)) return *value;
-  throw std::logic_error("adelie.db: value is not an integer");
+  throw std::logic_error{"adelie.db: value is not an integer"};
 }
 
 auto Value::as_double() const -> double {
   if (auto const* value = std::get_if<double>(&data_)) return *value;
-  throw std::logic_error("adelie.db: value is not a real");
+  throw std::logic_error{"adelie.db: value is not a real"};
 }
 
 auto Value::as_string() const noexcept -> std::string_view {
@@ -136,7 +136,7 @@ auto Value::as_blob() const noexcept -> Blob const& {
 }
 
 Row::Row(std::vector<std::string> names, std::vector<Value> values)
-    : names_(std::move(names)), values_(std::move(values)) {}
+    : names_{std::move(names)}, values_{std::move(values)} {}
 
 auto Row::size() const noexcept -> std::size_t { return values_.size(); }
 
@@ -153,7 +153,7 @@ auto Row::value(std::size_t index) const -> Value const& { return values_.at(ind
 auto Row::value(std::string_view column) const -> Value const& {
   for (std::size_t i = 0; i < names_.size(); ++i)
     if (names_[i] == column) return values_[i];
-  throw std::out_of_range("adelie.db: no column named \"" + std::string{column} + '"');
+  throw std::out_of_range{"adelie.db: no column named \"" + std::string{column} + '"'};
 }
 
 auto Row::operator[](std::size_t index) const -> Value const& { return value(index); }

@@ -25,7 +25,7 @@ auto storage() -> std::optional<Injector>& {
 template <class Injector>
 auto held() -> Injector& {
   auto& instance = storage<Injector>();
-  if (!instance) throw std::runtime_error("adelie: no injector installed for this type");
+  if (!instance) throw std::runtime_error{"adelie: no injector installed for this type"};
   return *instance;
 }
 
@@ -77,7 +77,7 @@ auto provides() noexcept -> bool {
 template <class Root>
 auto create() -> Root {
   auto const build = detail::factory<Root>();
-  if (build == nullptr) throw std::runtime_error("adelie: this type was never installed as a DI root");
+  if (build == nullptr) throw std::runtime_error{"adelie: this type was never installed as a DI root"};
   return build();
 }
 

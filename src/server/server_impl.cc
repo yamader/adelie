@@ -57,8 +57,8 @@ auto resolve_chain(routing::Router const& routes, routing::RouteDefinition const
   for (auto const& name : route.middleware()) {
     auto const* middleware = routes.middleware_for(name);
     if (middleware == nullptr)
-      throw std::invalid_argument("adelie: unregistered middleware \"" + name + "\" on route \"" +
-                                  std::string{route.uri()} + '"');
+      throw std::invalid_argument{"adelie: unregistered middleware \"" + name + "\" on route \"" +
+                                  std::string{route.uri()} + '"'};
     out.push_back(middleware);
   }
   return out;
@@ -159,7 +159,7 @@ struct Server::Impl {
   std::uint16_t port = 8080;
 };
 
-Server::Server(routing::Router& routes) : impl_(std::make_unique<Impl>()) { impl_->routes = &routes; }
+Server::Server(routing::Router& routes) : impl_{std::make_unique<Impl>()} { impl_->routes = &routes; }
 
 Server::Server(Server&& other) noexcept = default;
 
@@ -185,7 +185,7 @@ auto Server::port() const noexcept -> std::uint16_t { return impl_->port; }
 auto Server::run() -> void {
   boost::corosio::ipv4_address addr;
   if (boost::corosio::parse_ipv4_address(impl_->address, addr))
-    throw std::invalid_argument("adelie: cannot parse listen address \"" + impl_->address + '"');
+    throw std::invalid_argument{"adelie: cannot parse listen address \"" + impl_->address + '"'};
 
   boost::corosio::io_context ctx;
   boost::beast2::http_server server(ctx, impl_->workers, build_router(*impl_->routes),
@@ -193,8 +193,8 @@ auto Server::run() -> void {
                                     boost::http::make_serializer_config(boost::http::serializer_config{}));
 
   if (auto const ec = server.bind(boost::corosio::endpoint{addr, impl_->port}))
-    throw std::runtime_error("adelie: cannot bind " + impl_->address + ':' + std::to_string(impl_->port) + " - " +
-                             ec.message());
+    throw std::runtime_error{"adelie: cannot bind " + impl_->address + ':' + std::to_string(impl_->port) + " - " +
+                             ec.message()};
 
   server.start();
   ctx.run();

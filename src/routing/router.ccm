@@ -30,7 +30,7 @@ class PendingRoute {
  private:
   friend class Router;
 
-  PendingRoute(Router& owner, std::size_t index) : owner_(&owner), index_(index) {}
+  PendingRoute(Router& owner, std::size_t index) : owner_{&owner}, index_{index} {}
 
   Router* owner_;
   std::size_t index_;
@@ -70,7 +70,7 @@ class RouteRegistrar {
  private:
   friend class Router;
 
-  explicit RouteRegistrar(Router& owner) : owner_(&owner) {}
+  explicit RouteRegistrar(Router& owner) : owner_{&owner} {}
 
   Router* owner_;
   GroupAttributes attributes_;
@@ -184,7 +184,7 @@ class Router {
 
   auto url(std::string_view name, std::span<Binding const> bindings) const -> std::string {
     auto const* route = named(name);
-    if (route == nullptr) throw std::invalid_argument("adelie: no route named \"" + std::string{name} + '"');
+    if (route == nullptr) throw std::invalid_argument{"adelie: no route named \"" + std::string{name} + '"'};
     return route->pattern().build(bindings);
   }
 
@@ -235,7 +235,7 @@ class Router {
     for (std::size_t i = 0; i < routes_.size(); ++i) {
       if (i == index) continue;
       if (routes_[i].name() == candidate)
-        throw std::invalid_argument("adelie: duplicate route name \"" + candidate + '"');
+        throw std::invalid_argument{"adelie: duplicate route name \"" + candidate + '"'};
     }
 
     route.set_name(value);
@@ -284,8 +284,8 @@ auto PendingRoute::middleware(std::initializer_list<std::string_view> values) ->
 auto PendingRoute::where(std::string_view parameter, std::string_view pattern) -> PendingRoute& {
   auto& route = owner_->at(index_);
   if (!route.pattern().has_parameter(parameter))
-    throw std::invalid_argument("adelie: route \"" + std::string{route.uri()} + "\" has no parameter \"" +
-                                std::string{parameter} + '"');
+    throw std::invalid_argument{"adelie: route \"" + std::string{route.uri()} + "\" has no parameter \"" +
+                                std::string{parameter} + '"'};
   route.set_constraint(parameter, pattern);
   return *this;
 }

@@ -56,7 +56,7 @@ auto next_savepoint() -> std::string {
 
 }
 
-Transaction::Transaction(Session& session) : session_(&session) {
+Transaction::Transaction(Session& session) : session_{&session} {
   if (session_->in_transaction()) {
     savepoint_ = next_savepoint();
     session_->execute("SAVEPOINT " + savepoint_);
