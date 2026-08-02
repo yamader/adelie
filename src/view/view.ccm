@@ -1,0 +1,48 @@
+export module adelie.view;
+
+export import :engine;
+export import :value;
+
+import std;
+import adelie.facades.config;
+import adelie.http;
+import adelie.resource;
+
+export namespace adelie::view {
+
+auto path() -> std::filesystem::path {
+  return std::filesystem::path{facades::Config::get("view.path", "resources/views")};
+}
+
+auto extension() -> std::string {
+  auto value = facades::Config::get("view.extension", ".html");
+  if (!value.empty() && value.front() != '.') value.insert(value.begin(), '.');
+  return value;
+}
+
+auto resolve(std::string_view name) -> resource::Resource {
+  if (name.empty()) throw std::invalid_argument{"adelie: empty view name"};
+
+  std::string relative{name};
+  std::ranges::replace(relative, '.', '/');
+  relative += extension();
+
+  return resource::Resource::at(path(), relative);
+}
+
+auto exists(std::string_view name) -> bool { return resolve(name).is_file(); }
+
+auto compile(std::string_view name) -> Template {
+  auto const source = resolve(name);
+  if (!source.is_file())
+    throw std::runtime_error{"adelie: view \"" + std::string{name} + "\" not found at " + source.path().string()};
+  return Template::parse(source.string(), std::string{name});
+}
+
+auto render(std::string_view name, Value const& data = {}) -> std::string { return compile(name).render(data); }
+
+auto view(std::string_view name, view::Value const& data = {}) -> http::Response {
+  return http::Response::html(view::render(name, data));
+}
+
+}

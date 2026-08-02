@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ .app }}</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <h1>Hello, {{ .name }}</h1>
+    {{ if .admin }}<p class="badge">administrator</p>{{ else }}<p class="badge">guest</p>{{ end }}
+    <p>{{! .note !}}</p>
+    <p><a href="/users">users</a></p>
+  </body>
+</html>

@@ -65,6 +65,18 @@ auto print_config() -> void {
   std::printf("env: HOME=%s\n", adelie::support::env("HOME", "?").c_str());
 }
 
+auto print_views() -> void {
+  auto const css = resource("assets/app.css");
+  std::printf("\nresource: %s mime=%s size=%llu\n", std::string{css.relative_path()}.c_str(),
+              std::string{css.mime_type()}.c_str(), static_cast<unsigned long long>(css.size()));
+
+  auto const rendered = adelie::view::render("home", {{"app", Config::get("app.name")},
+                                                      {"name", std::string{"<b>bob</b>"}},
+                                                      {"admin", true},
+                                                      {"note", std::string{"<em>raw</em>"}}});
+  std::printf("\nrendered home:\n%s\n", rendered.c_str());
+}
+
 auto serve() -> int {
   adelie::Server server{Route::router()};
   server.workers(4).listen("127.0.0.1", 8080);
@@ -90,4 +102,5 @@ auto main(int argc, char** argv) -> int {
   print_urls();
   print_db();
   print_config();
+  print_views();
 }

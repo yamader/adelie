@@ -29,6 +29,19 @@ auto define_routes() -> void {
 
   Route::get("/", &HomeController::index).name("home");
 
+  Route::get("/hello", [](Request const& req) {
+    return view("home", {{"app", Config::get("app.name")},
+                         {"name", std::string{req.query("name", "world")}},
+                         {"admin", req.query("admin") == "1"},
+                         {"note", std::string{"rendered by <code>adelie.view</code>"}}});
+  }).name("hello");
+
+  Route::get("/assets/{path*}", [](Request const& req) {
+    auto const asset = adelie::Resource::find(adelie::resource::root() / "assets", req.route("path"));
+    if (!asset) return Response::text("not found", Status::not_found);
+    return asset->response();
+  }).name("assets");
+
   Route::get("/users", &UserController::index).name("users.index");
   Route::get("/users/{id}", &UserController::show).name("users.show").where("id", "[0-9]+");
   Route::post("/users", &UserController::store).name("users.store");

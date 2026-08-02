@@ -5,7 +5,13 @@ import adelie;
 export namespace example {
 
 auto setup_config() -> void {
-  Config::defaults({{"app.name", "adelie"}, {"host", "127.0.0.1"}, {"port", "8080"}, {"debug", "false"}});
+  Config::defaults({{"app.name", "adelie"},
+                    {"host", "127.0.0.1"},
+                    {"port", "8080"},
+                    {"debug", "false"},
+                    {"resource.path", "example/resources"},
+                    {"view.path", "example/resources/views"},
+                    {"view.extension", ".html"}});
 }
 
 }

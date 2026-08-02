@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ .app }} &mdash; users</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <h1>Users ({{ .count }})</h1>
+    {{- if .users }}
+    <ul>
+      {{- for .users as .user }}
+      <li><a href="/users/{{ .user.id }}">{{ .user.name }}</a> <small>on {{ .app }}</small></li>
+      {{- end }}
+    </ul>
+    {{- else }}
+    <p>no users yet</p>
+    {{- end }}
+    <footer>repository calls: {{ .log }}</footer>
+  </body>
+</html>

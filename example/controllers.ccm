@@ -63,7 +63,15 @@ class UserController {
   UserController(UserSource& users, Logger& log) : users_{&users}, log_{&log} {}
 
   auto index(Request const&) -> Response {
-    return Response::json({{"count", std::to_string(users_->count())}, {"log", std::to_string(log_->count())}});
+    adelie::view::Array rows;
+    for (auto const& user : User::all())
+      rows.push_back(adelie::view::Value{{"id", static_cast<std::int64_t>(user.key())},
+                                         {"name", std::string{user.get("name").as_string()}}});
+
+    return view("users.index", {{"app", Config::get("app.name")},
+                                {"count", static_cast<std::int64_t>(users_->count())},
+                                {"users", adelie::view::Value{std::move(rows)}},
+                                {"log", static_cast<std::int64_t>(log_->count())}});
   }
 
   auto show(Request const& req) -> Response {

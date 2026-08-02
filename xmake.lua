@@ -21,3 +21,4 @@ target 'example'
 set_kind 'binary'
 add_deps 'adelie'
 add_files('example/**.cc', 'example/**.ccm')
+set_rundir '$(projectdir)'

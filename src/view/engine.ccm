@@ -1,0 +1,403 @@
+export module adelie.view:engine;
+
+import std;
+import :value;
+
+export namespace adelie::view {
+
+auto escape_html(std::string_view value) -> std::string {
+  std::string out;
+  out.reserve(value.size());
+  for (char const c : value) {
+    switch (c) {
+      case '&':
+        out += "&amp;";
+        break;
+      case '<':
+        out += "&lt;";
+        break;
+      case '>':
+        out += "&gt;";
+        break;
+      case '"':
+        out += "&quot;";
+        break;
+      case '\'':
+        out += "&#39;";
+        break;
+      default:
+        out.push_back(c);
+    }
+  }
+  return out;
+}
+
+}
+
+namespace adelie::view::detail {
+
+enum class NodeKind { text, interpolation, branch, loop };
+
+struct Path {
+  std::vector<std::string> keys;
+};
+
+struct Node {
+  NodeKind kind = NodeKind::text;
+  std::string text;
+  Path path;
+  std::string binding;
+  bool raw = false;
+  std::vector<Node> children;
+  std::vector<Node> alternative;
+};
+
+struct Token {
+  bool is_action = false;
+  std::string text;
+  bool raw = false;
+  std::size_t line = 1;
+};
+
+[[noreturn]] auto fail(std::string_view name, std::size_t line, std::string_view why) -> void {
+  throw std::invalid_argument{"adelie: template \"" + std::string{name} + "\" line " + std::to_string(line) + ": " +
+                              std::string{why}};
+}
+
+auto is_space(char c) noexcept -> bool { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
+
+auto trimmed(std::string_view value) noexcept -> std::string_view {
+  while (!value.empty() && is_space(value.front())) value.remove_prefix(1);
+  while (!value.empty() && is_space(value.back())) value.remove_suffix(1);
+  return value;
+}
+
+auto is_key_char(char c) noexcept -> bool {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+}
+
+auto starts_with_keyword(std::string_view body, std::string_view keyword) noexcept -> bool {
+  if (!body.starts_with(keyword)) return false;
+  return body.size() > keyword.size() && is_space(body[keyword.size()]);
+}
+
+auto without_prefix(std::string_view what) noexcept -> std::string_view {
+  constexpr std::string_view prefix = "adelie: ";
+  return what.starts_with(prefix) ? what.substr(prefix.size()) : what;
+}
+
+auto split_words(std::string_view value) -> std::vector<std::string_view> {
+  std::vector<std::string_view> words;
+  std::size_t i = 0;
+  while (i < value.size()) {
+    while (i < value.size() && is_space(value[i])) ++i;
+    auto const start = i;
+    while (i < value.size() && !is_space(value[i])) ++i;
+    if (i > start) words.push_back(value.substr(start, i - start));
+  }
+  return words;
+}
+
+auto parse_binding(std::string_view spec, std::string_view name, std::size_t line) -> std::string {
+  if (spec.starts_with('.')) spec.remove_prefix(1);
+  if (spec.empty()) fail(name, line, "empty binding name after 'as'");
+  for (char const c : spec)
+    if (!is_key_char(c)) fail(name, line, "invalid binding name \"" + std::string{spec} + '"');
+  return std::string{spec};
+}
+
+auto parse_path(std::string_view expr, std::string_view name, std::size_t line) -> Path {
+  Path path;
+  if (expr.empty()) fail(name, line, "empty expression");
+  if (expr.front() != '.') fail(name, line, "expression must start with '.'");
+  if (expr == ".") fail(name, line, "a bare '.' is not an expression; name a field like '.title'");
+
+  while (!expr.empty()) {
+    expr.remove_prefix(1);
+    auto const next = expr.find('.');
+    auto const key = expr.substr(0, next);
+    if (key.empty()) fail(name, line, "empty field name");
+    for (char const c : key)
+      if (!is_key_char(c)) fail(name, line, "invalid field name \"" + std::string{key} + '"');
+    path.keys.emplace_back(key);
+    expr = next == std::string_view::npos ? std::string_view{} : expr.substr(next);
+  }
+
+  return path;
+}
+
+auto scan(std::string_view source, std::string_view name) -> std::vector<Token> {
+  std::vector<Token> tokens;
+  std::size_t index = 0;
+  std::size_t line = 1;
+  bool trim_next = false;
+
+  auto count_lines = [&](std::string_view chunk) {
+    for (char const c : chunk)
+      if (c == '\n') ++line;
+  };
+
+  auto push_text = [&](std::string_view chunk) {
+    if (trim_next) {
+      while (!chunk.empty() && is_space(chunk.front())) chunk.remove_prefix(1);
+      trim_next = false;
+    }
+    if (!chunk.empty()) tokens.push_back(Token{.is_action = false, .text = std::string{chunk}, .line = line});
+  };
+
+  while (index < source.size()) {
+    auto const open = source.find("{{", index);
+    if (open == std::string_view::npos) {
+      auto const tail = source.substr(index);
+      push_text(tail);
+      count_lines(tail);
+      break;
+    }
+
+    auto const leading = source.substr(index, open - index);
+    bool const raw = open + 2 < source.size() && source[open + 2] == '!';
+    auto const body_start = open + (raw ? 3 : 2);
+    std::string_view const closer = raw ? "!}}" : "}}";
+
+    auto const close = source.find(closer, body_start);
+    if (close == std::string_view::npos) {
+      count_lines(leading);
+      fail(name, line, raw ? "unclosed {{!" : "unclosed {{");
+    }
+
+    auto body = source.substr(body_start, close - body_start);
+    bool const trim_left = body.starts_with("-");
+    if (trim_left) body.remove_prefix(1);
+    bool const trim_right = body.ends_with("-");
+    if (trim_right) body.remove_suffix(1);
+
+    push_text(leading);
+    count_lines(leading);
+    auto const action_line = line;
+
+    if (trim_left && !tokens.empty() && !tokens.back().is_action) {
+      auto& previous = tokens.back().text;
+      while (!previous.empty() && is_space(previous.back())) previous.pop_back();
+      if (previous.empty()) tokens.pop_back();
+    }
+
+    auto const action = trimmed(body);
+    if (!action.starts_with("/*"))
+      tokens.push_back(Token{.is_action = true, .text = std::string{action}, .raw = raw, .line = action_line});
+
+    trim_next = trim_right;
+    count_lines(source.substr(open, close + closer.size() - open));
+    index = close + closer.size();
+  }
+
+  return tokens;
+}
+
+auto parse_nodes(std::vector<Token> const& tokens, std::size_t& index, std::string_view name, bool top,
+                 std::string& closed_by) -> std::vector<Node> {
+  std::vector<Node> nodes;
+  closed_by.clear();
+
+  auto parse_block = [&](Node& node, std::size_t line, std::string_view what) {
+    std::string closer;
+    node.children = parse_nodes(tokens, index, name, false, closer);
+    if (closer == "else") {
+      std::string inner;
+      node.alternative = parse_nodes(tokens, index, name, false, inner);
+      closer = inner;
+    }
+    if (closer != "end") fail(name, line, "missing {{end}} for {{" + std::string{what} + "}}");
+  };
+
+  while (index < tokens.size()) {
+    auto const& token = tokens[index];
+
+    if (!token.is_action) {
+      nodes.push_back(Node{.kind = NodeKind::text, .text = token.text});
+      ++index;
+      continue;
+    }
+
+    if (token.text == "end" || token.text == "else") {
+      if (top) fail(name, token.line, "unexpected {{" + token.text + "}}");
+      closed_by = token.text;
+      ++index;
+      return nodes;
+    }
+
+    auto const line = token.line;
+
+    if (starts_with_keyword(token.text, "if")) {
+      Node node{.kind = NodeKind::branch,
+                .path = parse_path(trimmed(std::string_view{token.text}.substr(2)), name, line)};
+      ++index;
+      parse_block(node, line, "if");
+      nodes.push_back(std::move(node));
+      continue;
+    }
+
+    if (token.text == "for") fail(name, line, "{{for}} needs an expression");
+
+    if (starts_with_keyword(token.text, "for")) {
+      auto const words = split_words(std::string_view{token.text}.substr(3));
+      if (words.size() != 3 || words[1] != "as")
+        fail(name, line, "{{for}} takes an expression followed by 'as <name>'");
+
+      Node node{.kind = NodeKind::loop,
+                .path = parse_path(words[0], name, line),
+                .binding = parse_binding(words[2], name, line)};
+      ++index;
+      parse_block(node, line, "for");
+      nodes.push_back(std::move(node));
+      continue;
+    }
+
+    nodes.push_back(
+        Node{.kind = NodeKind::interpolation, .path = parse_path(token.text, name, line), .raw = token.raw});
+    ++index;
+  }
+
+  return nodes;
+}
+
+struct Scope {
+  Value const* root = nullptr;
+  std::vector<std::pair<std::string_view, Value const*>> bindings;
+};
+
+auto resolve(Path const& path, Scope const& scope) -> Value const* {
+  Value const* current = scope.root;
+  std::size_t first = 0;
+
+  if (!path.keys.empty()) {
+    for (auto it = scope.bindings.rbegin(); it != scope.bindings.rend(); ++it) {
+      if (it->first != path.keys.front()) continue;
+      current = it->second;
+      first = 1;
+      break;
+    }
+  }
+
+  for (std::size_t i = first; i < path.keys.size(); ++i) {
+    if (current == nullptr) return nullptr;
+    current = current->find(path.keys[i]);
+  }
+  return current;
+}
+
+auto render_nodes(std::vector<Node> const& nodes, Scope& scope, std::string& out) -> void {
+  for (auto const& node : nodes) {
+    switch (node.kind) {
+      case NodeKind::text:
+        out += node.text;
+        break;
+
+      case NodeKind::interpolation: {
+        auto const* value = resolve(node.path, scope);
+        if (value == nullptr) break;
+        auto const text = value->to_string();
+        if (node.raw)
+          out += text;
+        else
+          out += escape_html(text);
+        break;
+      }
+
+      case NodeKind::branch: {
+        auto const* value = resolve(node.path, scope);
+        render_nodes(value != nullptr && value->truthy() ? node.children : node.alternative, scope, out);
+        break;
+      }
+
+      case NodeKind::loop: {
+        auto const* value = resolve(node.path, scope);
+        bool empty = true;
+
+        auto step = [&](Value const& item) {
+          empty = false;
+          scope.bindings.emplace_back(node.binding, &item);
+          render_nodes(node.children, scope, out);
+          scope.bindings.pop_back();
+        };
+
+        if (value != nullptr && value->is_array()) {
+          for (auto const& item : value->as_array()) step(item);
+        } else if (value != nullptr && value->is_object()) {
+          for (auto const& member : value->as_object()) step(member.value);
+        } else if (value != nullptr && !value->is_null()) {
+          throw std::runtime_error{"adelie: {{for}} expects an array or an object"};
+        }
+
+        if (empty) render_nodes(node.alternative, scope, out);
+        break;
+      }
+    }
+  }
+}
+
+}
+
+export namespace adelie::view {
+
+class Template {
+ public:
+  Template(Template&& other) noexcept;
+  auto operator=(Template&& other) noexcept -> Template&;
+  ~Template();
+
+  static auto parse(std::string source, std::string name = {}) -> Template;
+
+  auto name() const noexcept -> std::string_view;
+  auto render(Value const& data) const -> std::string;
+
+ private:
+  Template();
+
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}
+
+namespace adelie::view {
+
+struct Template::Impl {
+  std::string name;
+  std::vector<detail::Node> nodes;
+};
+
+Template::Template() : impl_{std::make_unique<Impl>()} {}
+
+Template::Template(Template&& other) noexcept = default;
+
+auto Template::operator=(Template&& other) noexcept -> Template& = default;
+
+Template::~Template() = default;
+
+auto Template::parse(std::string source, std::string name) -> Template {
+  Template out;
+  out.impl_->name = std::move(name);
+
+  auto const tokens = detail::scan(source, out.impl_->name);
+  std::size_t index = 0;
+  std::string closed_by;
+  out.impl_->nodes = detail::parse_nodes(tokens, index, out.impl_->name, true, closed_by);
+
+  return out;
+}
+
+auto Template::name() const noexcept -> std::string_view { return impl_->name; }
+
+auto Template::render(Value const& data) const -> std::string {
+  std::string out;
+  detail::Scope scope{.root = &data, .bindings = {}};
+  try {
+    detail::render_nodes(impl_->nodes, scope, out);
+  } catch (std::exception const& e) {
+    throw std::runtime_error{"adelie: template \"" + impl_->name +
+                             "\": " + std::string{detail::without_prefix(e.what())}};
+  }
+  return out;
+}
+
+}
