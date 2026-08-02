@@ -7,13 +7,23 @@ export import adelie.routing.route;
 export import adelie.routing.router;
 export import adelie.facades.di;
 export import adelie.facades.route;
+export import adelie.db;
+export import adelie.facades.db;
 export import adelie.server;
 
 export namespace adelie {
 
 namespace di = facades::di;
 
+using facades::DB;
 using facades::Route;
+
+using db::Config;
+using db::ResultSet;
+using db::Row;
+using db::Session;
+using db::Transaction;
+using db::Value;
 
 using http::Field;
 using http::Header;

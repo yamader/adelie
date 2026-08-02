@@ -1,0 +1,19 @@
+module;
+
+#include <memory>
+#include <string_view>
+
+export module adelie.db:sqlite;
+
+import :connector;
+import :types;
+
+export namespace adelie::db {
+
+class SqliteConnector final : public Connector {
+ public:
+  auto driver() const noexcept -> std::string_view override;
+  auto open(Config const& config) -> std::unique_ptr<Session> override;
+};
+
+}

@@ -1,0 +1,46 @@
+module;
+
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+export module adelie.db:manager;
+
+import :connector;
+import :session;
+import :sqlite;
+import :types;
+
+export namespace adelie::db {
+
+class DatabaseManager {
+ public:
+  DatabaseManager();
+  DatabaseManager(DatabaseManager const&) = delete;
+  auto operator=(DatabaseManager const&) -> DatabaseManager& = delete;
+
+  auto register_connector(std::shared_ptr<Connector> connector) -> DatabaseManager&;
+  auto has_connector(std::string_view driver) const noexcept -> bool;
+
+  auto connect(Config config) -> DatabaseManager&;
+  auto connect(std::string_view name, Config config) -> DatabaseManager&;
+  auto has_connection(std::string_view name) const noexcept -> bool;
+
+  auto session(std::string_view name) -> Session&;
+  auto disconnect(std::string_view name) -> void;
+  auto disconnect_all() -> void;
+
+  auto connections() const -> std::vector<std::string>;
+
+ private:
+  std::map<std::string, std::shared_ptr<Connector>, std::less<>> drivers_;
+  std::map<std::string, Config, std::less<>> connections_;
+  std::map<std::string, std::unique_ptr<Session>, std::less<>> sessions_;
+  mutable std::mutex mutex_;
+};
+
+}

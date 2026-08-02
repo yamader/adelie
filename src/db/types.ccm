@@ -1,0 +1,95 @@
+module;
+
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <variant>
+#include <vector>
+
+export module adelie.db:types;
+
+export namespace adelie::db {
+
+struct Config {
+  std::string name = "default";
+  std::string driver = "sqlite";
+  std::string connection;                      // driver-specific target, e.g. file path or ":memory:" for sqlite
+  std::map<std::string, std::string> options;  // driver-specific settings, e.g. foreign_keys / busy_timeout
+};
+
+enum class ValueType { null, integer, real, text, blob };
+
+class Value {
+ public:
+  using Blob = std::vector<std::byte>;
+
+  Value() = default;
+  Value(std::nullptr_t);
+  Value(double value);
+  Value(std::string value);
+  Value(std::string_view value);
+  Value(char const* value);
+  Value(Blob value);
+
+  template <class T>
+    requires std::is_integral_v<T>
+  Value(T value) : data_(static_cast<std::int64_t>(value)) {}
+
+  auto type() const noexcept -> ValueType;
+  auto is_null() const noexcept -> bool;
+
+  auto as_int() const -> std::int64_t;
+  auto as_double() const -> double;
+  auto as_string() const noexcept -> std::string_view;
+  auto as_blob() const noexcept -> Blob const&;
+
+ private:
+  std::variant<std::monostate, std::int64_t, double, std::string, Blob> data_;
+};
+
+class Row {
+ public:
+  Row() = default;
+  Row(std::vector<std::string> names, std::vector<Value> values);
+
+  auto size() const noexcept -> std::size_t;
+  auto has(std::string_view column) const noexcept -> bool;
+  auto names() const noexcept -> std::vector<std::string> const&;
+
+  auto value(std::size_t index) const -> Value const&;
+  auto value(std::string_view column) const -> Value const&;
+  auto operator[](std::size_t index) const -> Value const&;
+  auto operator[](std::string_view column) const -> Value const&;
+
+ private:
+  std::vector<std::string> names_;
+  std::vector<Value> values_;
+};
+
+class ResultSet {
+ public:
+  ResultSet() = default;
+
+  auto empty() const noexcept -> bool;
+  auto size() const noexcept -> std::size_t;
+  auto row(std::size_t index) const -> Row const&;
+  auto operator[](std::size_t index) const -> Row const&;
+  auto first() const noexcept -> Row const*;
+  auto rows() const noexcept -> std::vector<Row> const&;
+  auto column_names() const -> std::vector<std::string>;
+
+  auto begin() const noexcept -> std::vector<Row>::const_iterator;
+  auto end() const noexcept -> std::vector<Row>::const_iterator;
+
+  auto add_row(std::vector<std::string> names, std::vector<Value> values) -> void;
+
+ private:
+  std::vector<Row> rows_;
+};
+
+}

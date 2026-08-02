@@ -1,0 +1,238 @@
+module;
+
+#include <sqlite3.h>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+module adelie.db;
+
+import :session;
+import :sqlite;
+import :types;
+
+namespace adelie::db {
+namespace {
+
+auto check(sqlite3* db, int rc) -> void {
+  if (rc == SQLITE_OK || rc == SQLITE_DONE || rc == SQLITE_ROW) return;
+  char const* message = db != nullptr ? sqlite3_errmsg(db) : nullptr;
+  throw std::runtime_error("adelie.db: sqlite error " + std::to_string(rc) + ": " +
+                           (message != nullptr ? message : "unknown"));
+}
+
+struct StatementGuard {
+  sqlite3_stmt* stmt = nullptr;
+  ~StatementGuard() {
+    if (stmt != nullptr) sqlite3_finalize(stmt);
+  }
+};
+
+auto bind_all(sqlite3* db, sqlite3_stmt* stmt, std::vector<Value> const& params) -> void {
+  if (params.size() > static_cast<std::size_t>(sqlite3_bind_parameter_count(stmt)))
+    throw std::invalid_argument("adelie.db: too many bind parameters");
+  int index = 1;
+  for (auto const& param : params) {
+    switch (param.type()) {
+      case ValueType::null:
+        check(db, sqlite3_bind_null(stmt, index));
+        break;
+      case ValueType::integer:
+        check(db, sqlite3_bind_int64(stmt, index, param.as_int()));
+        break;
+      case ValueType::real:
+        check(db, sqlite3_bind_double(stmt, index, param.as_double()));
+        break;
+      case ValueType::text: {
+        auto const text = param.as_string();
+        check(db, sqlite3_bind_text(stmt, index, text.data(), static_cast<int>(text.size()), SQLITE_TRANSIENT));
+        break;
+      }
+      case ValueType::blob: {
+        auto const& blob = param.as_blob();
+        check(db, sqlite3_bind_blob(stmt, index, blob.data(), static_cast<int>(blob.size()), SQLITE_TRANSIENT));
+        break;
+      }
+    }
+    ++index;
+  }
+}
+
+auto collect_rows(sqlite3* db, sqlite3_stmt* stmt) -> ResultSet {
+  ResultSet out;
+  int const columns = sqlite3_column_count(stmt);
+  std::vector<std::string> names;
+  names.reserve(static_cast<std::size_t>(columns));
+  for (int i = 0; i < columns; ++i) {
+    auto const* name = sqlite3_column_name(stmt, i);
+    names.emplace_back(name != nullptr ? name : "");
+  }
+  for (;;) {
+    int const rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) break;
+    if (rc != SQLITE_ROW) {
+      check(db, rc);
+      break;
+    }
+    std::vector<Value> values;
+    values.reserve(static_cast<std::size_t>(columns));
+    for (int i = 0; i < columns; ++i) {
+      switch (sqlite3_column_type(stmt, i)) {
+        case SQLITE_INTEGER:
+          values.emplace_back(sqlite3_column_int64(stmt, i));
+          break;
+        case SQLITE_FLOAT:
+          values.emplace_back(sqlite3_column_double(stmt, i));
+          break;
+        case SQLITE_TEXT: {
+          auto const* text = sqlite3_column_text(stmt, i);
+          values.emplace_back(std::string(reinterpret_cast<char const*>(text),
+                                          static_cast<std::size_t>(sqlite3_column_bytes(stmt, i))));
+          break;
+        }
+        case SQLITE_BLOB: {
+          auto const* blob = sqlite3_column_blob(stmt, i);
+          int const length = sqlite3_column_bytes(stmt, i);
+          Value::Blob data(static_cast<std::size_t>(length));
+          if (length > 0 && blob != nullptr) std::memcpy(data.data(), blob, static_cast<std::size_t>(length));
+          values.emplace_back(std::move(data));
+          break;
+        }
+        default:
+          values.emplace_back(nullptr);
+          break;
+      }
+    }
+    out.add_row(names, values);
+  }
+  return out;
+}
+
+auto option_of(Config const& config, std::string_view key, std::string_view fallback) -> std::string {
+  auto const it = config.options.find(std::string(key));
+  return it != config.options.end() ? it->second : std::string(fallback);
+}
+
+class SqliteSession final : public Session {
+ public:
+  SqliteSession(std::string name, sqlite3* db) : name_(std::move(name)), db_(db) {}
+  ~SqliteSession() override { close(); }
+
+  auto name() const noexcept -> std::string_view override { return name_; }
+
+  auto connected() const noexcept -> bool override {
+    std::lock_guard lock(mutex_);
+    return db_ != nullptr;
+  }
+
+  auto execute(std::string_view sql) -> ResultSet override { return execute(sql, {}); }
+
+  auto execute(std::string_view sql, std::vector<Value> const& params) -> ResultSet override {
+    std::lock_guard lock(mutex_);
+    return run(sql, params);
+  }
+
+  auto last_insert_id() noexcept -> std::int64_t override {
+    std::lock_guard lock(mutex_);
+    return db_ != nullptr ? sqlite3_last_insert_rowid(db_) : 0;
+  }
+
+  auto affected_rows() noexcept -> std::int64_t override {
+    std::lock_guard lock(mutex_);
+    return db_ != nullptr ? sqlite3_changes(db_) : 0;
+  }
+
+  auto in_transaction() const noexcept -> bool override {
+    std::lock_guard lock(mutex_);
+    return in_transaction_;
+  }
+
+  auto begin() -> void override {
+    std::lock_guard lock(mutex_);
+    if (in_transaction_) throw std::logic_error("adelie.db: already in a transaction");
+    run("BEGIN", {});
+    in_transaction_ = true;
+  }
+
+  auto commit() -> void override {
+    std::lock_guard lock(mutex_);
+    if (!in_transaction_) throw std::logic_error("adelie.db: not in a transaction");
+    run("COMMIT", {});
+    in_transaction_ = false;
+  }
+
+  auto rollback() -> void override {
+    std::lock_guard lock(mutex_);
+    if (!in_transaction_) throw std::logic_error("adelie.db: not in a transaction");
+    run("ROLLBACK", {});
+    in_transaction_ = false;
+  }
+
+  auto close() -> void override {
+    std::lock_guard lock(mutex_);
+    if (db_ != nullptr) {
+      sqlite3_close(db_);
+      db_ = nullptr;
+    }
+  }
+
+ private:
+  auto run(std::string_view sql, std::vector<Value> const& params) -> ResultSet {
+    if (db_ == nullptr) throw std::runtime_error("adelie.db: session is closed");
+    sqlite3_stmt* raw = nullptr;
+    check(db_, sqlite3_prepare_v2(db_, sql.data(), static_cast<int>(sql.size()), &raw, nullptr));
+    StatementGuard guard{raw};
+    bind_all(db_, raw, params);
+    if (sqlite3_column_count(raw) == 0) {
+      check(db_, sqlite3_step(raw));
+      return ResultSet{};
+    }
+    return collect_rows(db_, raw);
+  }
+
+  std::string name_;
+  sqlite3* db_;
+  mutable std::mutex mutex_;
+  bool in_transaction_ = false;
+};
+
+auto open_sqlite(std::string const& target) -> sqlite3* {
+  sqlite3* db = nullptr;
+  int const rc =
+      sqlite3_open_v2(target.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, nullptr);
+  if (rc != SQLITE_OK) {
+    char const* message = db != nullptr ? sqlite3_errmsg(db) : nullptr;
+    std::string const detail = message != nullptr ? message : "unknown";
+    if (db != nullptr) sqlite3_close(db);
+    throw std::runtime_error("adelie.db: cannot open sqlite database \"" + target + "\": " + detail);
+  }
+  return db;
+}
+
+}
+
+auto SqliteConnector::driver() const noexcept -> std::string_view { return "sqlite"; }
+
+auto SqliteConnector::open(Config const& config) -> std::unique_ptr<Session> {
+  sqlite3* db = open_sqlite(config.connection);
+  auto session = std::make_unique<SqliteSession>(config.name, db);
+  try {
+    session->execute("PRAGMA foreign_keys = " + option_of(config, "foreign_keys", "1"));
+    if (auto const busy = option_of(config, "busy_timeout", ""); !busy.empty())
+      session->execute("PRAGMA busy_timeout = " + busy);
+    if (auto const journal = option_of(config, "journal_mode", ""); !journal.empty())
+      session->execute("PRAGMA journal_mode = " + journal);
+  } catch (...) {
+    session->close();
+    throw;
+  }
+  return session;
+}
+
+}

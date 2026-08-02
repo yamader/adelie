@@ -1,0 +1,52 @@
+module;
+
+#include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
+export module adelie.db:session;
+
+import :types;
+
+export namespace adelie::db {
+
+class Session {
+ public:
+  virtual ~Session() = default;
+
+  virtual auto name() const noexcept -> std::string_view = 0;
+  virtual auto connected() const noexcept -> bool = 0;
+
+  virtual auto execute(std::string_view sql) -> ResultSet = 0;
+  virtual auto execute(std::string_view sql, std::vector<Value> const& params) -> ResultSet = 0;
+
+  virtual auto last_insert_id() noexcept -> std::int64_t = 0;
+  virtual auto affected_rows() noexcept -> std::int64_t = 0;
+
+  virtual auto in_transaction() const noexcept -> bool = 0;
+  virtual auto begin() -> void = 0;
+  virtual auto commit() -> void = 0;
+  virtual auto rollback() -> void = 0;
+
+  virtual auto close() -> void = 0;
+};
+
+class Transaction {
+ public:
+  explicit Transaction(Session& session);
+  Transaction(Transaction const&) = delete;
+  auto operator=(Transaction const&) -> Transaction& = delete;
+  ~Transaction();
+
+  auto commit() -> void;
+  auto rollback() -> void;
+  auto active() const noexcept -> bool;
+
+ private:
+  Session* session_;
+  bool committed_ = false;
+  std::string savepoint_;
+};
+
+}
